@@ -1,0 +1,38 @@
+{
+  "summary": "Tested 6 NEW items (7-12) for this round plus regression checks. Backend: 6/6 new pytest tests passed covering item 9 (Test User exclusion + permanent is_public=false guard for @mtree.dev on manifestation creation) and item 10 (fresh-user streak_reminder_enabled default True + opt-out works) + item 7 field presence. Frontend: verified via live browser automation on Expo web preview - item 7 badges (Donated/Affirmation/Hustle Linked) render on both wall list card and detail sheet always showing explicit Yes/No/On/Off; item 8 confirmed no testimony/story text anywhere in detail sheet; item 9 confirmed only 'mj rd' shown on wall, no 'Test User'; item 10 confirmed fresh @mtree.dev user's Settings 'Remind me daily' toggle is ON by default with 8:00 PM time, and opt-out toggle works; item 11 confirmed via code review + measured DOM heights that Cycle/Reminders/Affirmation/Hustle/Fasting cards all share styles.choiceCard (minHeight:78) giving a consistent uniform sizing band (cycle cards measured exactly 78px each; toggle cards 78-98px depending on 1 vs 2 lines of text, which is expected content-driven variance, not a jump/shrink bug); item 12 confirmed splash screen (app/index.tsx) shows ONLY the tree icon + 'GOAL · INTENTION · SACRIFICE' tagline, no 'mTree' wordmark text. Regression: Home card order (Moon+Cosmic -> Deity(Zorath) -> Streak -> Affirmation -> Your Journey) confirmed with Streak card visible without scrolling; 'Best 0' streak label text renders correctly; Wall save/filter previously verified still functioning (used in item 7/8/9 flows).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_wall_badges_streak_default_v7.py",
+    "/app/test_reports/pytest/pytest_v7_wall_badges.xml"
+  ],
+  "action_items": [
+    "No blocking fixes required. All 6 new items (7-12) verified working end-to-end via backend pytest + live UI automation.",
+    "Testing note (not a bug): FilledButton in manifest-setup.tsx (and reused ui.tsx component) uses onPressIn instead of onPress (documented as a deliberate Android/Reanimated workaround). Playwright's standard .click() (which fires mousedown+mouseup+click) did NOT reliably trigger onPressIn on this preview environment - had to use explicit page.mouse.down()/wait/mouse.up() sequences to advance the manifest-setup wizard steps. This worked fine and is likely just a Playwright/RN-Web quirk, not a real user-facing issue (real touch/mouse-down would fire onPressIn normally), but flagging in case future testing agents hit the same 'Continue button seems unresponsive' symptom - use mouse.down()+mouse.up() instead of .click() for this specific button pattern."
+  ],
+  "critical_code_review_comments": [
+    "wall.tsx InfoBadge component correctly renders Donated/Affirmation/Hustle Linked on both the list card (line ~210) and DetailPanel (line ~413) using the exact same component/props pattern, always showing explicit value text regardless of true/false (never conditionally hidden) - matches item 7 spec exactly.",
+    "wall.tsx DetailPanel has zero testimony/story rendering left (confirmed via source read and live DOM text extraction) - fully removed per item 8.",
+    "server.py create_manifestation (line 596-597) forces is_public=False for any @mtree.dev account even when client payload requests is_public=True - verified live via pytest that a freshly created+manifested item never appears on GET /api/community/wall afterward. _test_account_user_ids() (line 776) provides defense-in-depth exclusion on both /community/wall and /community/leaderboard queries.",
+    "UserProfile default streak_reminder_enabled=True (line 135) + AuthContext.tsx/settings.tsx both use the `!== false` pattern (not `=== true`) so any legacy/undefined value on old users also defaults to enabled - correct forward-compatible default logic.",
+    "manifest-setup.tsx: Cycle (line 290), Busy Hours (line 396), Affirmation (line 514), Hustle (line 558), and Fasting choice cards all share styles.choiceCard = { minHeight: 78, justifyContent: 'center' } (line 674) - single shared style guarantees no drastic size jump between steps; small height variance (78-98px) across steps is purely due to differing amounts of text content (title-only vs title+subtitle vs marginTop spacing), not inconsistent sizing logic.",
+    "app/index.tsx splash screen uses a dedicated icon-only PNG asset (gen_logo_a_constellation_v2_secondary.png) with no wordmark baked into the image or rendered as separate Text - item 12 correctly implemented."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_wall_badges_streak_default_v7.py"
+  ],
+  "success_rate": {"backend": "100% (6/6 pytest tests passed)", "frontend": "100% of in-scope items 7-12 + regression verified"},
+  "seed_data_creation": "Multiple fresh @mtree.dev test users created during this session (all disposable, prefixed testfresh*/testsetup*/TEST_freshuser_* - safe to ignore/leave, no impact on real user data). One extra active manifestation created on the existing test@mtree.dev account for the Home-card-order regression check (goal=money/sacrifice=sugar/21 days, is_public correctly forced to false server-side, left active/not deleted since no user-facing delete endpoint exists - harmless as it's private and abandons automatically if another manifestation is started).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Dev-login + localStorage.setItem('mtree_session_token', JSON.stringify(token)) + page.reload()/goto() pattern confirmed working again. IMPORTANT UI-testing tip: manifest-setup.tsx's 'Continue' button (and other FilledButton instances) use onPressIn not onPress - use page.mouse.move()+mouse.down()+wait+mouse.up() instead of page.click() to reliably advance wizard steps in Playwright against this Expo web preview. Also for off-screen chip options (e.g. sacrifice category 'Sugar' which is far down a long scrollable chip list), must scroll_into_view_if_needed() before computing click coordinates, otherwise the click silently lands off-screen and the selection doesn't register even though the element technically exists in DOM. test@mtree.dev currently has one active (not manifested) manifestation left over from this session's regression check.",
+  "rca_of_issue": "Not applicable - no bugs found in items 7-12. All new features implemented correctly per spec. The only notable finding was a testing-tool-level interaction quirk (onPressIn vs click()) documented above, not an application bug."
+}

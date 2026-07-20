@@ -131,7 +131,8 @@ class UserProfile(BaseModel):
     reminder_times: List[str] = []
     # Single, always-free "don't break your streak" daily nudge — separate from the premium
     # per-manifestation Reminder Center above (which supports up to 10x/day + custom scheduling).
-    streak_reminder_enabled: bool = False
+    # Defaults to ON for every user (opt-out, not opt-in) so no one silently misses reminders.
+    streak_reminder_enabled: bool = True
     streak_reminder_time: str = "20:00"
     onboarding_done: bool = False
     profile_done: bool = False
@@ -383,7 +384,7 @@ async def dev_login(email: str = "test@mtree.dev", name: str = "Test User"):
             "affirmation_language": "english", "notification_count": 0,
             "notification_busy_start": None, "notification_busy_end": None,
             "busy_hours_enabled": False,
-            "streak_reminder_enabled": False,
+            "streak_reminder_enabled": True,
             "streak_reminder_time": "20:00",
             "onboarding_done": False, "profile_done": False, "tour_done": False,
             "journey_intro_seen": False,
@@ -439,7 +440,7 @@ async def auth_session(req: SessionRequest):
             "notification_busy_start": None,
             "notification_busy_end": None,
             "busy_hours_enabled": False,
-            "streak_reminder_enabled": False,
+            "streak_reminder_enabled": True,
             "streak_reminder_time": "20:00",
             "onboarding_done": False,
             "profile_done": False,
@@ -589,6 +590,11 @@ async def create_manifestation(req: ManifestationCreate, user: dict = Depends(ge
         "testimony": None,
         "created_at": now,
     }
+    # Internal @mtree.dev test/dev-login accounts must never surface on the public Community
+    # Wall or leaderboard, no matter what the client requests — keeps production social
+    # features showing only real users.
+    if (user.get("email") or "").lower().endswith("@mtree.dev"):
+        m["is_public"] = False
     await db.manifestations.insert_one(m)
     return clean_user(m)
 
@@ -767,6 +773,13 @@ async def get_garden(user: dict = Depends(get_current_user)):
     return result
 
 # ------------------- Community Wall -------------------
+async def _test_account_user_ids() -> List[str]:
+    """Resolves current @mtree.dev test/dev-login account user_ids, so wall/leaderboard
+    queries can exclude them as defense-in-depth (on top of forcing is_public=False for
+    these accounts at manifestation-creation time)."""
+    docs = await db.users.find({"email": {"$regex": "@mtree\\.dev$", "$options": "i"}}, {"_id": 0, "user_id": 1}).to_list(1000)
+    return [d["user_id"] for d in docs]
+
 @api_router.get("/community/wall")
 async def wall(
     user: dict = Depends(get_current_user),
@@ -779,8 +792,10 @@ async def wall(
     if not user.get("is_premium"):
         raise HTTPException(403, "Premium required")
     limit = max(1, min(50, limit))
-    # Only completed manifestations are shown on the wall (showcase of successes)
-    query: dict = {"is_public": True, "status": "manifested"}
+    # Only completed manifestations are shown on the wall (showcase of successes). Test/
+    # dev-login accounts are always excluded so the production wall only shows real users.
+    test_ids = await _test_account_user_ids()
+    query: dict = {"is_public": True, "status": "manifested", "user_id": {"$nin": test_ids}}
     if goal_category:
         query["goal_category"] = goal_category
     if sacrifice_category:
@@ -808,8 +823,9 @@ async def wall(
 async def leaderboard(user: dict = Depends(get_current_user)):
     if not user.get("is_premium"):
         raise HTTPException(403, "Premium required")
+    test_ids = await _test_account_user_ids()
     items = await db.manifestations.find(
-        {"is_public": True}, {"_id": 0}
+        {"is_public": True, "user_id": {"$nin": test_ids}}, {"_id": 0}
     ).sort("max_streak", -1).limit(50).to_list(50)
     items = await heal_manifestations(items)
     return items

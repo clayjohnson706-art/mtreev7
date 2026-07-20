@@ -134,14 +134,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Same safety-net pattern for the single daily Streak Reminder — re-syncs on launch and
   // whenever the enabled flag or chosen time changes, independent of the ritual-reminder
-  // schedule above.
+  // schedule above. Defaults to ON (opt-out, not opt-in): only an EXPLICIT `false` from the
+  // backend cancels it, any other value (true/undefined) schedules it.
   const lastStreakKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user) return;
-    const key = `${user.streak_reminder_enabled ?? false}|${user.streak_reminder_time ?? "20:00"}`;
+    const enabled = user.streak_reminder_enabled !== false;
+    const key = `${enabled}|${user.streak_reminder_time ?? "20:00"}`;
     if (lastStreakKeyRef.current === key) return;
     lastStreakKeyRef.current = key;
-    if (user.streak_reminder_enabled) {
+    if (enabled) {
       scheduleStreakReminder(user.streak_reminder_time ?? "20:00").catch(() => {});
     } else {
       cancelStreakReminder().catch(() => {});

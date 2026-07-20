@@ -288,14 +288,15 @@ export default function ManifestSetup() {
                       onPress={() => setDays(c.days)}
                     >
                       <Card style={{
+                        ...styles.choiceCard,
                         borderWidth: 1,
                         borderColor: days === c.days ? COLORS.gold : "transparent",
                         backgroundColor: days === c.days ? COLORS.gold + "10" : COLORS.surface1,
                       }}>
                         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                          <View>
-                            <Text style={styles.cardTitle}>{c.label}</Text>
-                            <Text style={styles.cardSub}>{c.desc}</Text>
+                          <View style={{ flex: 1, paddingRight: 12 }}>
+                            <Text style={styles.cardTitle} numberOfLines={1}>{c.label}</Text>
+                            <Text style={styles.cardSub} numberOfLines={1}>{c.desc}</Text>
                           </View>
                           {days === c.days && <Ionicons name="checkmark-circle" size={22} color={COLORS.gold} />}
                         </View>
@@ -393,14 +394,15 @@ export default function ManifestSetup() {
                   activeOpacity={0.85}
                 >
                   <Card style={{
+                    ...styles.choiceCard,
                     borderWidth: 1,
                     borderColor: busyHoursEnabled ? COLORS.gold : "transparent",
                     opacity: (isPremium && reminders > 0) ? 1 : 0.4,
                   }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <View style={{ flex: 1, paddingRight: 12 }}>
-                        <Text style={styles.cardTitle}>{busyHoursEnabled ? "Avoid Busy Hours" : "Busy Hours Off"}</Text>
-                        <Text style={styles.stepSub}>
+                        <Text style={styles.cardTitle} numberOfLines={1}>{busyHoursEnabled ? "Avoid Busy Hours" : "Busy Hours Off"}</Text>
+                        <Text style={styles.stepSub} numberOfLines={1}>
                           {busyHoursEnabled ? "Reminders will skip the window below." : "Reminders can fire anytime."}
                         </Text>
                       </View>
@@ -510,13 +512,14 @@ export default function ManifestSetup() {
                   activeOpacity={0.85}
                 >
                   <Card style={{
+                    ...styles.choiceCard,
                     marginTop: 12,
                     borderWidth: 1,
                     borderColor: affirmationOn ? COLORS.gold : "transparent",
                     opacity: isPremium ? 1 : 0.4,
                   }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text style={styles.cardTitle}>{affirmationOn ? "Affirmations ON" : "Affirmations OFF"}</Text>
+                      <Text style={styles.cardTitle} numberOfLines={1}>{affirmationOn ? "Affirmations ON" : "Affirmations OFF"}</Text>
                       <Ionicons name={affirmationOn ? "toggle" : "toggle-outline"} size={30} color={affirmationOn ? COLORS.gold : COLORS.gray2} />
                     </View>
                   </Card>
@@ -553,12 +556,13 @@ export default function ManifestSetup() {
                 </Text>
                 <TouchableOpacity testID="hustle-toggle" onPress={() => setHustle(!hustle)} activeOpacity={0.85}>
                   <Card style={{
+                    ...styles.choiceCard,
                     marginTop: 20,
                     borderWidth: 1,
                     borderColor: hustle ? COLORS.gold : "transparent",
                   }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text style={styles.cardTitle}>{hustle ? "Yes, I will link my hustle" : "Not linking hustle"}</Text>
+                      <Text style={[styles.cardTitle, { flex: 1, paddingRight: 12 }]} numberOfLines={1}>{hustle ? "Yes, I will link my hustle" : "Not linking hustle"}</Text>
                       <Ionicons name={hustle ? "toggle" : "toggle-outline"} size={30} color={hustle ? COLORS.gold : COLORS.gray2} />
                     </View>
                   </Card>
@@ -574,12 +578,13 @@ export default function ManifestSetup() {
                 </Text>
                 <TouchableOpacity onPress={() => setFasting(!fasting)} activeOpacity={0.85}>
                   <Card style={{
+                    ...styles.choiceCard,
                     marginTop: 20,
                     borderWidth: 1,
                     borderColor: fasting ? COLORS.gold : "transparent",
                   }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text style={styles.cardTitle}>{fasting ? "Yes, I will fast" : "No fasting"}</Text>
+                      <Text style={[styles.cardTitle, { flex: 1, paddingRight: 12 }]} numberOfLines={1}>{fasting ? "Yes, I will fast" : "No fasting"}</Text>
                       <Ionicons name={fasting ? "toggle" : "toggle-outline"} size={30} color={fasting ? COLORS.gold : COLORS.gray2} />
                     </View>
                   </Card>
@@ -662,6 +667,11 @@ const styles = StyleSheet.create({
   label: { color: COLORS.gray2, fontSize: 11, fontWeight: "700", letterSpacing: 2, marginTop: 20, marginBottom: 8 },
   cardTitle: { color: COLORS.white, fontSize: 16, fontWeight: "700" },
   cardSub: { color: COLORS.gray1, fontSize: 12, marginTop: 4 },
+  // Shared fixed footprint for every single-choice "toggle" card across the Cycle/Busy-Hours/
+  // Affirmation/Hustle/Fasting steps, so the card's width/height/padding never visibly shifts
+  // as the user taps "Continue" between steps, regardless of whether that step's card has a
+  // subtitle line or not.
+  choiceCard: { minHeight: 78, justifyContent: "center" },
   lockCard: { marginTop: 12, alignItems: "center", gap: 8, padding: 20 },
   lockText: { color: COLORS.gray1, fontSize: 13 },
   upgradeLink: { color: COLORS.gold, fontSize: 13, fontWeight: "700" },

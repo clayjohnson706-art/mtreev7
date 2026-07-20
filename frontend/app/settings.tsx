@@ -61,16 +61,15 @@ export default function Settings() {
   const isPremium = !!user?.is_premium;
 
   // Daily Streak Reminder — a single, always-free daily nudge (independent of the premium
-  // multi-time Reminder Center above). Local state mirrors the profile so the Switch/time row
-  // flip instantly, then persists via updateProfile + (re)schedules or cancels the local
-  // notification to match.
-  const [streakReminderEnabled, setStreakReminderEnabled] = useState<boolean>(user?.streak_reminder_enabled ?? false);
+  // multi-time Reminder Center above). Defaults to ON (opt-out, not opt-in) — only an
+  // explicit `false` from the backend is treated as disabled.
+  const [streakReminderEnabled, setStreakReminderEnabled] = useState<boolean>(user?.streak_reminder_enabled !== false);
   const [streakReminderTime, setStreakReminderTime] = useState<string>(user?.streak_reminder_time ?? "20:00");
   const [showStreakTimePicker, setShowStreakTimePicker] = useState(false);
   const [streakPermBlocked, setStreakPermBlocked] = useState(false);
   React.useEffect(() => {
     if (user) {
-      setStreakReminderEnabled(user.streak_reminder_enabled ?? false);
+      setStreakReminderEnabled(user.streak_reminder_enabled !== false);
       setStreakReminderTime(user.streak_reminder_time ?? "20:00");
     }
   }, [user?.streak_reminder_enabled, user?.streak_reminder_time]);

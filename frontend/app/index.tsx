@@ -46,7 +46,7 @@ export default function Splash() {
       <AnimatedBackground deityColor={COLORS.gold} />
       <Animated.View style={[styles.logoWrap, logoStyle]}>
         <Image
-          source={require("@/assets/images/gen_logo_a_constellation_v2_primary.png")}
+          source={require("@/assets/images/gen_logo_a_constellation_v2_secondary.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -58,13 +58,10 @@ export default function Splash() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.void, alignItems: "center", justifyContent: "center" },
-  // Extra vertical padding around the logo (beyond the image's own internal margins) so the
-  // "mTree" wordmark at the bottom of the artwork always has clear breathing room and is never
-  // perceived as cramped/clipped against the tagline below it, on any screen size.
   logoWrap: { alignItems: "center", justifyContent: "center", paddingVertical: 12 },
-  // resizeMode="contain" never crops — width/height kept at the image's true aspect ratio
-  // (947 x 1383 source) so the full wordmark, including descenders, always renders intact.
-  logo: { width: 148, height: 148 * (1383 / 947) },
+  // Icon-only mark (no "mTree" wordmark) — square source artwork (1066 x 1066), so width and
+  // height are equal here, matching the same icon-only asset used for app.json's native splash.
+  logo: { width: 128, height: 128 },
   tagline: {
     color: COLORS.gray1,
     fontSize: 12,

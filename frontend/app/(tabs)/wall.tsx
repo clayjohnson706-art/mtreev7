@@ -206,7 +206,11 @@ export default function Wall() {
                     <View style={[styles.dot, { backgroundColor: isDone ? COLORS.success : COLORS.warning }]} />
                     <Text style={styles.metaText}>{isDone ? "Manifested" : `Day ${m.current_day}/${m.cycle_days}`}</Text>
                     <Text style={[styles.metaText, { marginLeft: 12 }]}>🔥 {m.streak_count}</Text>
-                    {m.donated && <Text style={[styles.metaText, { marginLeft: 12, color: COLORS.gold }]}>Donated</Text>}
+                  </View>
+                  <View style={styles.infoBadgeRow}>
+                    <InfoBadge label="Donated" value={m.donated ? "Yes" : "No"} positive={!!m.donated} />
+                    <InfoBadge label="Affirmation" value={m.affirmation_enabled ? "On" : "Off"} positive={!!m.affirmation_enabled} />
+                    <InfoBadge label="Hustle Linked" value={m.hustle_enabled ? "Yes" : "No"} positive={!!m.hustle_enabled} />
                   </View>
                 </Card>
               </TouchableOpacity>
@@ -404,22 +408,18 @@ function DetailPanel({ manifestation, onClose, onToggleSave, isSaved }: any) {
           />
         </View>
 
-        {/* Testimony — the manifested story itself, front and center for a "wall of proof" feel */}
-        {!!m.testimony && (
-          <View style={styles.testimonyBox} testID="detail-testimony">
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="chatbox-ellipses" size={14} color={COLORS.gold} />
-              <Text style={styles.testimonyLabel}>THEIR STORY</Text>
-            </View>
-            <Text style={styles.testimonyText}>&ldquo;{m.testimony}&rdquo;</Text>
-          </View>
-        )}
+        {/* Donated / Affirmation / Hustle Linked — same badges as the wall list card, always
+            showing the explicit Yes/No or On/Off state (never hidden when the value is "No"). */}
+        <View style={styles.infoBadgeRow}>
+          <InfoBadge label="Donated" value={m.donated ? "Yes" : "No"} positive={!!m.donated} />
+          <InfoBadge label="Affirmation" value={m.affirmation_enabled ? "On" : "Off"} positive={!!m.affirmation_enabled} />
+          <InfoBadge label="Hustle Linked" value={m.hustle_enabled ? "Yes" : "No"} positive={!!m.hustle_enabled} />
+        </View>
 
         <View style={styles.detailBlock}>
           <DetailRow label="CREATED" value={created} />
           {m.moon_phase_at_start ? (<><Divider /><DetailRow label="MOON AT START" value={`🌙 ${m.moon_phase_at_start}`} /></>) : null}
           {completed && (<><Divider /><DetailRow label="COMPLETED" value={completed} /></>)}
-          {m.donated && (<><Divider /><DetailRow label="DONATED" value="Yes ✓ 🙏" /></>)}
         </View>
 
         <TouchableOpacity
@@ -458,6 +458,18 @@ function IconTile({
       </View>
       <Text style={styles.iconTileLabel}>{label}</Text>
       <Text style={[styles.iconTileValue, color && { color }]} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+// Compact Yes/No · On/Off pill used on both the wall list card and the detail sheet to
+// consistently surface Donated / Affirmation / Hustle Linked status at a glance.
+function InfoBadge({ label, value, positive }: { label: string; value: string; positive: boolean }) {
+  return (
+    <View style={[styles.infoBadge, { backgroundColor: (positive ? COLORS.success : COLORS.gray3) + "22" }]}>
+      <Text style={[styles.infoBadgeText, { color: positive ? COLORS.success : COLORS.gray2 }]}>
+        {label}: {value}
+      </Text>
     </View>
   );
 }
@@ -540,9 +552,9 @@ const styles = StyleSheet.create({
   rowLabel: { color: COLORS.gray2, fontSize: 11, fontWeight: "700", letterSpacing: 1.5 },
   rowValue: { color: COLORS.white, fontSize: 14, fontWeight: "600", maxWidth: "60%", textAlign: "right" },
   divider: { height: 1, backgroundColor: COLORS.gray3 + "60" },
-  testimonyBox: { marginTop: 18, padding: 18, borderRadius: 18, backgroundColor: COLORS.gold + "10", borderWidth: 1, borderColor: COLORS.gold + "25" },
-  testimonyLabel: { color: COLORS.gold, fontSize: 10.5, fontWeight: "800", letterSpacing: 1.5 },
-  testimonyText: { color: COLORS.white, fontSize: 15, fontStyle: "italic", marginTop: 8, lineHeight: 24 },
+  infoBadgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+  infoBadge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  infoBadgeText: { fontSize: 10.5, fontWeight: "700" },
   saveCta: { marginTop: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, height: 54, borderRadius: 16 },
   saveCtaText: { fontSize: 14, fontWeight: "700" },
 

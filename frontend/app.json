@@ -34,8 +34,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/gen_logo_a_constellation_v2_primary.png",
-          "imageWidth": 180,
+          "image": "./assets/images/gen_logo_a_constellation_v2_secondary.png",
+          "imageWidth": 160,
           "resizeMode": "contain",
           "backgroundColor": "#030308"
         }
