@@ -1,0 +1,35 @@
+{
+  "summary": "First-time full E2E verification of freshly imported mTree app (from mtreev6 GitHub repo) in this pod. Backend: ran full pytest suite (168 tests) - 105 passed, 26 skipped, 45 errors (all admin-panel tests requiring the real admin Google account to have logged in once via OAuth in this fresh empty DB - expected/known limitation per PRD history, NOT a regression). Frontend: completed full E2E flow using dev-login bypass (localStorage token injection, since real Google OAuth cannot be automated) - auth screen -> onboarding (6 slides) -> deity selection (Zorath) -> profile-setup (name/gender/dob/country) -> manifest-setup (8-step wizard: goal=money, sacrifice=sugar, cycle=21 days, reminders off, affirmation on, hustle off, fasting off, confirm) -> Home screen -> performed full 4s Hold-to-Manifest ritual -> verified via API that streak_count=1, current_day=1, tree_stage=1 correctly persisted -> Settings screen -> Community Wall (premium access, correctly showed empty state since no manifested items exist yet in fresh DB). No React Native red-screen errors or crashes throughout.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "profile-setup.tsx name input", "issue": "On a direct/fresh page load of /profile-setup (e.g. deep link or fast reload before AuthContext finishes bootstrap), the 'YOUR NAME' field initializes to empty instead of the already-signed-in user's name, because `useState(user?.name ?? \"\")` only reads `user` once at mount and never re-syncs when `user` resolves asynchronously afterward. Not hit during the normal in-app navigation flow (deity->profile-setup) since user is already loaded by then, but is a latent bug for any deep-link/reload scenario.", "testID": "profile-name-input", "priority": "LOW"},
+      {"component": "settings.tsx Name row", "issue": "Name value 'Test User' unnecessarily truncates to 'Test ...' with an ellipsis despite `rowValue` having maxWidth:60% of a ~325px row (plenty of room for 9 characters) — likely a flex-shrink/numberOfLines interaction on web that clips text more aggressively than intended.", "testID": "settings-edit-name-row", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional, low priority) Fix profile-setup.tsx to reactively sync `name`/`gender`/`dob`/`country` state via useEffect when `user` loads asynchronously, instead of a mount-only useState initializer.",
+    "(Optional, low priority) Investigate settings.tsx Name row text truncation - likely a web flexbox sizing issue, not present on native.",
+    "No action needed for the 45 admin-panel pytest errors - expected in any fresh pod until the real admin (nextleveldev706@gmail.com) signs in once via real Google OAuth; this cannot be automated per the test constraints."
+  ],
+  "critical_code_review_comments": [
+    "server.py is a single 970-line file handling auth, profile, manifestations, community, and admin - could be split into routers (auth_router, manifestation_router, admin_router) for maintainability as the app grows, though not urgent at current size.",
+    "dev-login endpoint is well-guarded (ENABLE_DEV_LOGIN flag + @mtree.dev domain restriction) - good defense-in-depth for a test-only endpoint.",
+    "get_current_user() correctly excludes _id and handles blocked/expired-premium edge cases inline - clean.",
+    "FilledButton's onPressIn-instead-of-onPress workaround (for the Android Reanimated regression) is a reasonable, well-documented tradeoff; just noting for future testers that on RN-Web, Playwright's instant .click() does NOT reliably trigger onPressIn - a realistic mouse.down()+wait+mouse.up() sequence is required to interact with these buttons in automated tests (not a real-user-facing issue)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% of testable endpoints (105/105 non-admin-gated tests passed; 45 admin tests require a one-time real-admin login, not a code failure)", "frontend": "100% of tested flows completed successfully (onboarding, deity, profile-setup, manifest-setup, ritual, settings, wall)"},
+  "seed_data_creation": "Created one dev-login test user (test@mtree.dev) with one active/completed-day-1 manifestation (goal=money, sacrifice=sugar, cycle=21) during E2E testing. Pytest's own test users (TEST_*@mtree.dev) were auto-purged by conftest.py's session-teardown fixture. The test@mtree.dev user from the manual Playwright E2E run was NOT auto-purged (only pytest-created data is cleaned up) - left in DB, clearly identifiable as test data (@mtree.dev domain), safe to ignore or purge in a future session.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Dev-login bypass for Playwright: POST /api/auth/dev-login?email=test@mtree.dev&name=X to get a session_token, then in the browser context run `window.localStorage.setItem('mtree_session_token', JSON.stringify(token))` and reload - AsyncStorage's web shim uses localStorage directly under this raw key (not IndexedDB), confirmed working. IMPORTANT: FilledButton/GhostButton (src/components/ui.tsx) use onPressIn not onPress - Playwright's `.click()` does NOT reliably fire this on RN-Web; use manual `page.mouse.move()+down()+wait+up()` at the button's bounding-box center instead. Chip and gender-select buttons use plain onPress and work fine with normal .click(force=True).",
+  "rca_of_issue": "No blocking bugs found this session. Two low-priority cosmetic/state-sync issues documented above (profile-setup name pre-fill race, settings name truncation) - neither blocks any user flow."
+}

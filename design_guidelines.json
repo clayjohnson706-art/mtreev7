@@ -1,0 +1,179 @@
+{
+  "project_name": "mTree",
+  "platform": "React Native Expo (Android First)",
+  "theme": "dark",
+  "typography": {
+    "primary": {
+      "family": "Satoshi",
+      "usage": "Body text, generic labels, buttons, subtitles",
+      "weights": ["Regular", "Medium", "Bold"]
+    },
+    "display": {
+      "family": "Cabinet Grotesk",
+      "usage": "Oversized hero headings (32-44sp), numeric cosmic counters, emphasis headers",
+      "weights": ["Bold", "Black", "Extrabold"]
+    },
+    "accent": {
+      "family": "Instrument Serif",
+      "usage": "Deity names, sacred chants, Chandra Dasa text, spiritual quotes",
+      "weights": ["Italic", "Regular"]
+    }
+  },
+  "colors": {
+    "backgrounds": {
+      "void": "#030308",
+      "bg": "#08081a",
+      "surface_1": "#10102a",
+      "surface_2": "#181840",
+      "surface_3": "#222255"
+    },
+    "accents": {
+      "gold": "#F5C542",
+      "electric": "#818CF8",
+      "cyan": "#22D3EE"
+    },
+    "text": {
+      "primary": "#F5F0E8",
+      "secondary": "#A8A3B3",
+      "tertiary": "#5C576B",
+      "quaternary": "#2E2A3B"
+    },
+    "status": {
+      "success": "#34D399",
+      "warning": "#FBBF24",
+      "danger": "#FB7185"
+    },
+    "deities": {
+      "Zorath": "#FF6B35",
+      "Kaelis": "#4E9AF1",
+      "Tharun": "#45B764",
+      "Vynel": "#C8D0DB",
+      "Aethis": "#A855F7",
+      "Solmara": "#FACC15",
+      "Luneth": "#93C5FD"
+    }
+  },
+  "components": {
+    "buttons": {
+      "filled": {
+        "background": "#F5C542",
+        "text_color": "#030308",
+        "height": 56,
+        "border_radius": 16,
+        "typography": "Satoshi Bold"
+      },
+      "ghost": {
+        "background": "transparent",
+        "border": "1px solid #5C576B",
+        "text_color": "#F5F0E8",
+        "height": 48,
+        "border_radius": 14
+      },
+      "chip": {
+        "background": "#181840",
+        "text_color": "#A8A3B3",
+        "height": 42,
+        "border_radius": 999
+      }
+    },
+    "surfaces": {
+      "card": {
+        "background": "#10102a",
+        "border_radius": 20,
+        "border": "none",
+        "padding": 16
+      }
+    },
+    "navigation": {
+      "bottom_nav": {
+        "type": "floating_pill",
+        "width": 200,
+        "height": 56,
+        "border_radius": 999,
+        "background": "rgba(16, 16, 42, 0.8)",
+        "backdrop_blur": "xl"
+      }
+    }
+  },
+  "layouts": {
+    "home_bento_grid": {
+      "description": "7-row bento grid with specific card allocations and 12-16dp gaps.",
+      "rows": [
+        {"row": 1, "columns": 2, "content": ["Moon Phase", "Cosmic Energy"]},
+        {"row": 2, "columns": 1, "content": ["Giant Tree Hero Card (~55% viewport height) - 3D banyan + deity stone shrine inside"]},
+        {"row": 3, "columns": 1, "content": ["Affirmation Card (Premium/Locked for free)"]},
+        {"row": 4, "columns": 2, "content": ["Chandra Dasa", "Cosmic Level"]},
+        {"row": 5, "columns": 2, "content": ["Hustle", "Fasting"]},
+        {"row": 6, "columns": 1, "content": ["Notes (Compact)"]},
+        {"row": 7, "columns": 1, "content": ["Manifest Action Card (80dp height, spark animations)"]}
+      ]
+    },
+    "deity_selection": {
+      "layout": "Hexagonal Honeycomb Grid",
+      "description": "Staggered rows of hexagonal tiles mapping to the 7 deities. Tiles feature carved stone textures."
+    },
+    "manifestation_setup": {
+      "layout": "Bottom Sheets",
+      "flow": ["Goal", "Sacrifice", "Cycle", "Reminders", "Affirmation", "Fasting", "Confirmation"]
+    }
+  },
+  "visual_enhancers": {
+    "animated_background": {
+      "base": "Deep void (#030308)",
+      "mesh_blobs": "3 slow-drifting blobs at 5% opacity in accent colors",
+      "texture": "Film grain overlay at 3% opacity",
+      "stars": "Starfield of 15-20 distinct dots",
+      "particles": "NO floating particles"
+    },
+    "premium_state": {
+      "style": "Locked features are grayed out (#2E2A3B text) with a prominent 🔒 icon."
+    }
+  },
+  "motion": {
+    "physics": "Spring physics everywhere (use react-native-reanimated with spring configs).",
+    "tree_aura": "3-layer breathing animation (pulsing scale/opacity) mapping to active Deity color.",
+    "manifest_card": "Electric sparks animation along border/edges.",
+    "counters": "Animated rolling/counting numbers for Cosmic Value.",
+    "ritual_interaction": "Hold-to-manifest logic on the hero tree. Explodes into a glowing seed and reforms back into a tree upon completion."
+  },
+  "media": {
+    "3d_banyan_tree_stages": {
+      "seed": "https://images.unsplash.com/photo-1612188527464-742e967e1f1e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwyfHxzZWVkbGluZyUyMG5pZ2h0fGVufDB8fHx8MTc4NDM5NDY0OXww&ixlib=rb-4.1.0&q=85",
+      "sprout": "https://images.pexels.com/photos/33800971/pexels-photo-33800971.jpeg",
+      "young": "https://images.unsplash.com/photo-1499343162160-cd1441923dd3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxnbG93aW5nJTIwZmFudGFzeSUyMHRyZWV8ZW58MHx8fHwxNzg0Mzk0NjQ5fDA&ixlib=rb-4.1.0&q=85",
+      "mature": "https://images.unsplash.com/photo-1527376219784-6a8fd98a35de?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwzfHwzRCUyMGJhbnlhbiUyMHRyZWV8ZW58MHx8fHwxNzg0Mzk0NjM5fDA&ixlib=rb-4.1.0&q=85",
+      "celestial": "https://images.pexels.com/photos/14811908/pexels-photo-14811908.jpeg"
+    },
+    "deity_stone_tablets": {
+      "Zorath": "https://images.unsplash.com/photo-1748186673755-112f7c0eea02?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwyfHxjYXJ2ZWQlMjBzdG9uZSUyMHN5bWJvbHN8ZW58MHx8fHwxNzg0Mzk0NjM5fDA&ixlib=rb-4.1.0&q=85",
+      "Kaelis": "https://images.unsplash.com/photo-1583429741724-76d2d8dbc7d2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxjYXJ2ZWQlMjBzdG9uZSUyMHN5bWJvbHN8ZW58MHx8fHwxNzg0Mzk0NjM5fDA&ixlib=rb-4.1.0&q=85",
+      "Tharun": "https://images.unsplash.com/photo-1777189979844-0b1597372f8d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHw0fHxjYXJ2ZWQlMjBzdG9uZSUyMHN5bWJvbHN8ZW58MHx8fHwxNzg0Mzk0NjM5fDA&ixlib=rb-4.1.0&q=85",
+      "Vynel": "https://images.pexels.com/photos/34486095/pexels-photo-34486095.jpeg",
+      "Aethis": "https://images.pexels.com/photos/37014481/pexels-photo-37014481.jpeg",
+      "Solmara": "https://images.unsplash.com/photo-1706610904920-c84b5ba024cb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwzfHxjYXJ2ZWQlMjBzdG9uZSUyMHN5bWJvbHN8ZW58MHx8fHwxNzg0Mzk0NjM5fDA&ixlib=rb-4.1.0&q=85",
+      "Luneth": "https://images.unsplash.com/photo-1748186673755-112f7c0eea02?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwyfHxjYXJ2ZWQlMjBzdG9uZSUyMHN5bWJvbHN8ZW58MHx8fHwxNzg0Mzk0NjM5fDA&ixlib=rb-4.1.0&q=85"
+    },
+    "background_assets": {
+      "starfield": "https://images.unsplash.com/photo-1768329051109-9986d6926566?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwxfHxzdGFyZmllbGQlMjBuaWdodCUyMHNreXxlbnwwfHx8fDE3ODQzOTQ2Mzl8MA&ixlib=rb-4.1.0&q=85",
+      "film_grain": "https://images.unsplash.com/photo-1602475063211-3d98d60e3b1f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxmaWxtJTIwZ3JhaW4lMjB0ZXh0dXJlfGVufDB8fHx8MTc4NDM5NDYzOXww&ixlib=rb-4.1.0&q=85",
+      "moon_phases": "https://images.pexels.com/photos/13540870/pexels-photo-13540870.png",
+      "mesh_gradient_reference": "https://images.unsplash.com/photo-1557683316-973673baf926?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwyfHxtZXNoJTIwZ3JhZGllbnQlMjBkYXJrfGVufDB8fHx8MTc4NDM5NDY0OXww&ixlib=rb-4.1.0&q=85"
+    }
+  },
+  "instructions_to_main_agent": {
+    "1_Setup": "Use Expo React Native. Load custom fonts (Satoshi, Cabinet Grotesk, Instrument Serif) via expo-font. Setup react-native-reanimated for all spring animations.",
+    "2_Styles": "Strictly map UI to the provided color hex codes. Surfaces must strictly avoid borders as per specs (`border: none` on surface cards).",
+    "3_Hero_Section": "The hero card needs to use absolute positioning or a stacked Image view for the 3D banyan tree over the background. Use the glowing deity aura dynamically mapped to the current selected deity color.",
+    "4_Grid_Layout": "Implement the home grid using standard Flexbox or specialized grid components. Mobile grids are essentially Flex layouts with wrapping and set percentage widths.",
+    "5_Bottom_Sheet": "Integrate `@gorhom/bottom-sheet` for the Manifestation setup flow, moving sequentially through steps.",
+    "6_Background": "Use absolute positioned `<Image>` components with low opacity for film grain, and looping SVG/Reanimated Views for the 3 mesh gradient blobs. Avoid particle libraries."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Prioritize spring animations over linear easing to achieve natural fluid interactions.",
+    "Always apply 'data-testid' or 'testID' attributes to interactive components like buttons, input fields, and bottom sheet triggers for robust automated testing.",
+    "For shadows, rely on elevation properties mapping to the Surface background colors rather than stark black shadows.",
+    "Never use generic AI fallback icons; strictly use styled iconography matching the mystic/petroglyph aesthetic.",
+    "Do not center-align body text or layout elements indiscriminately. Respect the Bento layout structure and keep dense information left-aligned.",
+    "Never use pure transparent backgrounds for overlays that sit on top of content. Apply glass-morphism/blur with a semi-opaque background color."
+  ]
+}

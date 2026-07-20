@@ -1,0 +1,574 @@
+import React, { useCallback, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform, Linking } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, DEITIES, LANGUAGES, COUNTRIES, flagEmoji } from "@/src/theme";
+import AnimatedBackground from "@/src/components/AnimatedBackground";
+import { Card, GhostButton, FilledButton } from "@/src/components/ui";
+import LanguagePicker from "@/src/components/LanguagePicker";
+import CountryPicker from "@/src/components/CountryPicker";
+import ReminderCenter from "@/src/components/ReminderCenter";
+import { useAuth } from "@/src/context/AuthContext";
+import { api } from "@/src/utils/api";
+import { LEGAL_LINKS } from "@/src/utils/legalLinks";
+
+export default function Settings() {
+  const router = useRouter();
+  const { user, updateProfile, signOut, deleteAccount, refresh } = useAuth();
+  const deity = DEITIES.find((d) => d.id === user?.deity_id) || DEITIES[0];
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showReminderCenter, setShowReminderCenter] = useState(false);
+  const [active, setActive] = useState<any>(null);
+  const [showDeityLocked, setShowDeityLocked] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const isPremium = !!user?.is_premium;
+
+  // Username edit — ONLY the name is editable here; email + gender stay read-only (set once
+  // during sign-up / profile-setup and never exposed as editable fields in this screen).
+  const [showEditName, setShowEditName] = useState(false);
+  const [nameInput, setNameInput] = useState(user?.name || "");
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState("");
+
+  const openEditName = () => {
+    setNameInput(user?.name || "");
+    setNameError("");
+    setShowEditName(true);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameInput.trim();
+    if (trimmed.length < 2) { setNameError("Name must be at least 2 characters."); return; }
+    if (trimmed.length > 40) { setNameError("Name must be under 40 characters."); return; }
+    setSavingName(true);
+    setNameError("");
+    try {
+      await updateProfile({ name: trimmed });
+      setShowEditName(false);
+    } catch {
+      setNameError("Couldn't save — check your connection and try again.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  // Local, optimistic mirror of the Public Profile setting — the Switch reads this instead of
+  // `user?.is_public` directly so it flips instantly on tap. Kept in sync whenever the real
+  // value changes elsewhere (e.g. a fresh profile load).
+  const [isPublicLocal, setIsPublicLocal] = useState<boolean>(user?.is_public ?? true);
+  React.useEffect(() => {
+    if (user) setIsPublicLocal(user.is_public);
+  }, [user?.is_public]);
+
+  // Re-check for an active manifestation every time Settings gains focus, so "Change Deity"
+  // automatically unlocks again once it's completed or deleted (from here or from Home).
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const a = await api<any>("/manifestations/active");
+          setActive(a);
+        } catch { setActive(null); }
+      })();
+    }, [])
+  );
+
+  const togglePublic = (v: boolean) => {
+    setIsPublicLocal(v); // instant UI feedback — persists in the background below
+    updateProfile({ is_public: v }).catch(() => {
+      setIsPublicLocal(!v); // revert only if the save actually failed
+    });
+  };
+
+  const setLang = async (lang: string) => {
+    if (!isPremium) { router.push("/paywall"); return; }
+    await updateProfile({ affirmation_language: lang });
+    setShowLangPicker(false);
+  };
+
+  const setCountry = async (code: string) => {
+    setShowCountryPicker(false);
+    await updateProfile({ country: code });
+  };
+
+  const onChangeDeityPress = () => {
+    if (active) setShowDeityLocked(true);
+    else router.push("/deity");
+  };
+
+  const confirmDeleteManifestation = async () => {
+    if (!active) return;
+    setDeleting(true);
+    try {
+      await api(`/manifestations/${active.id}/abandon`, { method: "POST" });
+      setActive(null);
+      setShowDeleteConfirm(false);
+      setShowDeityLocked(false);
+    } finally { setDeleting(false); }
+  };
+
+  const confirmDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      // dismissAll() first pops every screen pushed on top of the stack's root (Home, tabs,
+      // Settings itself, etc.) BEFORE replacing — otherwise router.replace() alone only swaps
+      // the current entry, leaving the authenticated screens still in history underneath, so
+      // pressing the hardware Back button from the login screen could resurface them.
+      router.dismissAll();
+      router.replace("/auth");
+    } finally { setDeletingAccount(false); }
+  };
+
+  return (
+    <View style={styles.container} testID="settings-screen">
+      <AnimatedBackground deityColor={deity.color} />
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} testID="settings-back">
+            <Ionicons name="chevron-back" size={22} color={COLORS.white} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Settings</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+          <Text style={styles.section}>ACCOUNT</Text>
+          <Card>
+            <TouchableOpacity onPress={openEditName} testID="settings-edit-name-row" activeOpacity={0.7}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Name</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.rowValue} numberOfLines={1}>{user?.name || ""}</Text>
+                  <Ionicons name="pencil" size={14} color={COLORS.gold} />
+                </View>
+              </View>
+            </TouchableOpacity>
+            <SettingRow label="Email" value={user?.email || ""} />
+            <SettingRow label="Gender" value={user?.gender || "-"} />
+          </Card>
+
+          <Text style={styles.section}>DEITY</Text>
+          <Card onPress={onChangeDeityPress} testID="settings-change-deity">
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Current</Text>
+              <Text style={[styles.rowValue, { color: deity.color, fontStyle: "italic" }]}>{deity.name}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: COLORS.gold, fontWeight: "700" }]}>Change Deity</Text>
+              <Ionicons name={active ? "lock-closed" : "chevron-forward"} size={18} color={COLORS.gray2} />
+            </View>
+          </Card>
+
+          <Text style={styles.section}>REMINDERS {!isPremium && "🔒"}</Text>
+          <Card
+            onPress={() => (isPremium && active ? setShowReminderCenter(true) : !isPremium ? router.push("/paywall") : undefined)}
+            testID="settings-reminders-row"
+          >
+            <View style={styles.row}>
+              <View>
+                <Text style={styles.rowLabel}>Reminder Center</Text>
+                <Text style={styles.rowSub}>
+                  {!active
+                    ? "Start a manifestation to enable reminders"
+                    : (user?.notification_count ?? 0) > 0
+                    ? `${user?.notification_count}x/day · ${user?.reminder_mode === "custom" ? "Custom" : "Random"}`
+                    : "Off"}
+                </Text>
+              </View>
+              <Ionicons name={active ? "chevron-forward" : "lock-closed"} size={18} color={COLORS.gray2} />
+            </View>
+          </Card>
+
+          <Text style={styles.section}>AFFIRMATION {!isPremium && "🔒"}</Text>
+          <Card onPress={() => (isPremium ? setShowLangPicker(true) : router.push("/paywall"))} testID="settings-language-row">
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Language</Text>
+              <Text style={[styles.rowValue, { color: COLORS.gold }]} numberOfLines={1}>
+                {LANGUAGES.find((l) => l.code === user?.affirmation_language)?.label ?? "English"}
+              </Text>
+            </View>
+          </Card>
+
+          <Text style={styles.section}>REGION</Text>
+          <Card onPress={() => setShowCountryPicker(true)} testID="settings-country-row">
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Country</Text>
+              <Text style={[styles.rowValue, { color: COLORS.gold }]} numberOfLines={1}>
+                {flagEmoji(user?.country)} {COUNTRIES.find((c) => c.code === user?.country)?.name ?? "Select country"}
+              </Text>
+            </View>
+          </Card>
+
+          <Text style={styles.section}>PRIVACY</Text>
+          <Card>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Public Profile</Text>
+              <Switch
+                testID="settings-public-toggle"
+                value={isPublicLocal}
+                onValueChange={togglePublic}
+                trackColor={{ true: COLORS.gold, false: COLORS.gray3 }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+          </Card>
+
+          <Text style={styles.section}>SUBSCRIPTION</Text>
+          <Card testID="settings-subscription" onPress={() => router.push("/subscription")}>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Status</Text>
+              <View style={[styles.pill, { backgroundColor: (isPremium ? COLORS.success : COLORS.gray3) + "20" }]}>
+                <Text style={{ color: isPremium ? COLORS.success : COLORS.gray1, fontSize: 12, fontWeight: "800" }}>
+                  {isPremium ? "PREMIUM ✦" : "FREE"}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: COLORS.gold, fontWeight: "700" }]}>
+                {isPremium ? "Manage Subscription" : "View Plans & Upgrade"}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.gray2} />
+            </View>
+          </Card>
+
+          {user?.is_admin && (
+            <>
+              <Text style={styles.section}>ADMIN</Text>
+              <Card testID="settings-admin-panel" onPress={() => router.push("/admin")}>
+                <View style={styles.row}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Ionicons name="shield-checkmark" size={16} color={COLORS.gold} />
+                    <Text style={[styles.rowLabel, { color: COLORS.gold, fontWeight: "700" }]}>Admin Panel</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={COLORS.gray2} />
+                </View>
+              </Card>
+            </>
+          )}
+
+          {active && (
+            <>
+              <Text style={styles.section}>MANIFESTATION</Text>
+              <Card>
+                <TouchableOpacity onPress={() => setShowDeleteConfirm(true)} testID="settings-abandon" activeOpacity={0.85}>
+                  <Text style={{ color: COLORS.danger, fontSize: 14, fontWeight: "600", padding: 6 }}>
+                    Abandon Manifestation
+                  </Text>
+                </TouchableOpacity>
+              </Card>
+            </>
+          )}
+
+          <GhostButton
+            testID="settings-signout"
+            label="Sign Out"
+            onPress={async () => {
+              await signOut();
+              // Same full-stack-clear as account deletion — prevents Back from Login
+              // returning into the authenticated Home/tabs stack after signing out.
+              router.dismissAll();
+              router.replace("/auth");
+            }}
+            style={{ marginTop: 24, backgroundColor: COLORS.danger + "12" }}
+          />
+
+          <Text style={styles.section}>LEGAL</Text>
+          <Card style={{ paddingVertical: 4 }}>
+            <LegalRow
+              testID="settings-legal-privacy-policy"
+              icon="shield-checkmark-outline"
+              label="Privacy Policy"
+              onPress={() => Linking.openURL(LEGAL_LINKS.privacyPolicy)}
+            />
+            <LegalRow
+              testID="settings-legal-terms"
+              icon="document-text-outline"
+              label="Terms & Conditions"
+              onPress={() => Linking.openURL(LEGAL_LINKS.termsAndConditions)}
+            />
+            <LegalRow
+              testID="settings-legal-refund"
+              icon="cash-outline"
+              label="Refund Policy"
+              onPress={() => Linking.openURL(LEGAL_LINKS.refundPolicy)}
+            />
+            <LegalRow
+              testID="settings-legal-account-deletion"
+              icon="trash-outline"
+              label="Account Deletion Policy"
+              onPress={() => Linking.openURL(LEGAL_LINKS.accountDeletion)}
+              isLast
+            />
+          </Card>
+
+          <TouchableOpacity
+            testID="settings-delete-account"
+            onPress={() => setShowDeleteAccountConfirm(true)}
+            style={{ marginTop: 20, alignSelf: "center", padding: 10 }}
+          >
+            <Text style={{ color: COLORS.gray2, fontSize: 13, fontWeight: "600", textDecorationLine: "underline" }}>
+              Delete Account
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Edit Name — only the username can be changed here; email + gender are fixed */}
+        <Modal transparent visible={showEditName} animationType="fade" onRequestClose={() => setShowEditName(false)}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <Pressable style={styles.centerBackdrop} onPress={() => setShowEditName(false)}>
+              <Pressable style={styles.lockCard} onPress={(e) => e.stopPropagation()} testID="edit-name-card">
+                <View style={[styles.warnIcon, { backgroundColor: COLORS.gold + "22" }]}>
+                  <Ionicons name="pencil" size={26} color={COLORS.gold} />
+                </View>
+                <Text style={styles.lockTitle}>Change Your Name</Text>
+                <Text style={styles.lockDesc}>Only your name can be changed. Email and gender stay fixed.</Text>
+                <TextInput
+                  testID="edit-name-input"
+                  value={nameInput}
+                  onChangeText={(t) => { setNameInput(t); setNameError(""); }}
+                  placeholder="Your name"
+                  placeholderTextColor={COLORS.gray2}
+                  style={styles.nameInput}
+                  maxLength={40}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={saveName}
+                />
+                {!!nameError && <Text style={styles.nameError} testID="edit-name-error">{nameError}</Text>}
+                <FilledButton
+                  testID="edit-name-save"
+                  label={savingName ? "Saving..." : "Save"}
+                  onPress={saveName}
+                  disabled={savingName}
+                  style={{ marginTop: 16, alignSelf: "stretch" }}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowEditName(false)}
+                  style={{ marginTop: 10, alignSelf: "stretch", alignItems: "center", padding: 10 }}
+                  testID="edit-name-cancel"
+                >
+                  <Text style={{ color: COLORS.gray1, fontSize: 14, fontWeight: "600" }}>Cancel</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Deity change locked — active manifestation in progress */}
+        <Modal transparent visible={showDeityLocked} animationType="fade" onRequestClose={() => setShowDeityLocked(false)}>
+          <Pressable style={styles.centerBackdrop} onPress={() => setShowDeityLocked(false)}>
+            <Pressable style={styles.lockCard} onPress={(e) => e.stopPropagation()} testID="deity-locked-card">
+              <View style={[styles.warnIcon, { backgroundColor: COLORS.gold + "20" }]}>
+                <Ionicons name="lock-closed" size={30} color={COLORS.gold} />
+              </View>
+              <Text style={styles.lockTitle}>Deity Locked</Text>
+              <Text style={styles.lockDesc}>
+                You have an ongoing manifestation. Please complete your current manifestation or delete it before changing your Deity.
+              </Text>
+              <FilledButton
+                testID="deity-locked-ok"
+                label="OK"
+                onPress={() => setShowDeityLocked(false)}
+                style={{ marginTop: 20, alignSelf: "stretch" }}
+              />
+              <TouchableOpacity
+                testID="deity-locked-delete-shortcut"
+                onPress={() => { setShowDeityLocked(false); setShowDeleteConfirm(true); }}
+                style={{ marginTop: 12, alignSelf: "stretch", alignItems: "center", padding: 10 }}
+              >
+                <Text style={{ color: COLORS.danger, fontSize: 14, fontWeight: "700" }}>Delete Current Manifestation</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Delete manifestation confirmation */}
+        <Modal transparent visible={showDeleteConfirm} animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+          <Pressable style={styles.centerBackdrop} onPress={() => setShowDeleteConfirm(false)}>
+            <Pressable style={styles.lockCard} onPress={(e) => e.stopPropagation()} testID="delete-confirm-card">
+              <View style={[styles.warnIcon, { backgroundColor: COLORS.danger + "22" }]}>
+                <Ionicons name="trash" size={30} color={COLORS.danger} />
+              </View>
+              <Text style={styles.lockTitle}>Delete this manifestation?</Text>
+              <Text style={styles.lockDesc}>
+                Your progress and streak will be reset. You will be free to set a new Goal, Sacrifice, or Deity.
+              </Text>
+              <TouchableOpacity
+                testID="delete-confirm-yes"
+                onPress={confirmDeleteManifestation}
+                disabled={deleting}
+                style={styles.confirmDeleteBtn}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmDeleteText}>{deleting ? "Deleting..." : "Yes, delete it"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDeleteConfirm(false)} style={{ marginTop: 10, alignSelf: "stretch", alignItems: "center", padding: 10 }} testID="delete-confirm-cancel">
+                <Text style={{ color: COLORS.gray1, fontSize: 14, fontWeight: "600" }}>Cancel</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Delete account confirmation */}
+        <Modal transparent visible={showDeleteAccountConfirm} animationType="fade" onRequestClose={() => setShowDeleteAccountConfirm(false)}>
+          <Pressable style={styles.centerBackdrop} onPress={() => setShowDeleteAccountConfirm(false)}>
+            <Pressable style={styles.lockCard} onPress={(e) => e.stopPropagation()} testID="delete-account-card">
+              <View style={[styles.warnIcon, { backgroundColor: COLORS.danger + "22" }]}>
+                <Ionicons name="warning" size={30} color={COLORS.danger} />
+              </View>
+              <Text style={styles.lockTitle}>Delete your account?</Text>
+              <Text style={styles.lockDesc}>
+                This permanently deletes your account and all associated data — manifestations, garden, saved cards, and profile. This cannot be undone.
+              </Text>
+              <TouchableOpacity
+                testID="delete-account-yes"
+                onPress={confirmDeleteAccount}
+                disabled={deletingAccount}
+                style={styles.confirmDeleteBtn}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmDeleteText}>{deletingAccount ? "Deleting..." : "Yes, delete my account"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDeleteAccountConfirm(false)} style={{ marginTop: 10, alignSelf: "stretch", alignItems: "center", padding: 10 }} testID="delete-account-cancel">
+                <Text style={{ color: COLORS.gray1, fontSize: 14, fontWeight: "600" }}>Cancel</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      </SafeAreaView>
+      <LanguagePicker
+        visible={showLangPicker}
+        selected={user?.affirmation_language ?? "english"}
+        onSelect={setLang}
+        onClose={() => setShowLangPicker(false)}
+      />
+      <CountryPicker
+        visible={showCountryPicker}
+        selected={user?.country ?? ""}
+        onSelect={setCountry}
+        onClose={() => setShowCountryPicker(false)}
+      />
+      {active && (
+        <ReminderCenter
+          visible={showReminderCenter}
+          onClose={() => setShowReminderCenter(false)}
+          manifestationId={active.id}
+          initialCount={active.reminder_count ?? 0}
+          initialBusyStart={user?.notification_busy_start}
+          initialBusyEnd={user?.notification_busy_end}
+          initialBusyHoursEnabled={user?.busy_hours_enabled ?? false}
+          initialMode={active.reminder_mode ?? user?.reminder_mode}
+          initialTimes={active.reminder_times ?? user?.reminder_times}
+          onSaved={async () => {
+            try { setActive(await api<any>("/manifestations/active")); } catch {}
+            refresh();
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+function SettingRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+// Row inside the "LEGAL" card — opens the official Google Sites page for that document in the
+// device's browser (Linking.openURL), never inside the app itself.
+function LegalRow({
+  icon,
+  label,
+  onPress,
+  testID,
+  isLast,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  testID?: string;
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      testID={testID}
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={[styles.legalRow, !isLast && styles.legalRowBorder]}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Ionicons name={icon} size={16} color={COLORS.gold} />
+        <Text style={styles.rowLabel}>{label}</Text>
+      </View>
+      <Ionicons name="open-outline" size={16} color={COLORS.gray2} />
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  title: { color: COLORS.white, fontSize: 20, fontWeight: "800" },
+  section: { color: COLORS.gray2, fontSize: 11, fontWeight: "700", letterSpacing: 2, marginTop: 20, marginBottom: 8 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
+  rowLabel: { color: COLORS.gray1, fontSize: 13 },
+  rowSub: { color: COLORS.gray2, fontSize: 11.5, marginTop: 3 },
+  rowValue: { color: COLORS.white, fontSize: 14, fontWeight: "500", maxWidth: "60%" },
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  busyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
+  busyPill: { flex: 1, height: 60, borderRadius: 16, backgroundColor: COLORS.surface2, justifyContent: "center", paddingHorizontal: 16 },
+  busyLabel: { color: COLORS.gray2, fontSize: 10, letterSpacing: 2, fontWeight: "700" },
+  busyTime: { color: COLORS.white, fontSize: 16, fontWeight: "800", marginTop: 4 },
+  segment: { height: 44, borderRadius: 12, backgroundColor: COLORS.surface2, flexDirection: "row", padding: 3, marginTop: 8 },
+  segItem: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 10 },
+  segActive: { backgroundColor: COLORS.gold },
+  segText: { color: COLORS.gray1, fontSize: 13, fontWeight: "600" },
+  segTextActive: { color: COLORS.void, fontWeight: "800" },
+  pill: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 },
+  iosPickerWrap: { flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" },
+  iosPickerCard: { backgroundColor: COLORS.surface1, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16 },
+  iosPickerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 12 },
+
+  centerBackdrop: { flex: 1, backgroundColor: "#000000E8", alignItems: "center", justifyContent: "center", padding: 24 },
+  lockCard: {
+    width: "100%", borderRadius: 24, backgroundColor: COLORS.surface1,
+    padding: 24, alignItems: "center",
+    shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 24, shadowOffset: { width: 0, height: 8 }, elevation: 18,
+  },
+  warnIcon: { width: 60, height: 60, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+  lockTitle: { color: COLORS.white, fontSize: 18, fontWeight: "800", marginTop: 12, textAlign: "center" },
+  lockDesc: { color: COLORS.gray1, fontSize: 13, textAlign: "center", marginTop: 8, lineHeight: 20 },
+  nameInput: {
+    marginTop: 18,
+    alignSelf: "stretch",
+    backgroundColor: COLORS.surface2,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: COLORS.white,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: COLORS.gray3,
+  },
+  nameError: { color: COLORS.danger, fontSize: 12, marginTop: 8, textAlign: "center" },
+  confirmDeleteBtn: {
+    marginTop: 20, height: 52, borderRadius: 16, alignSelf: "stretch",
+    alignItems: "center", justifyContent: "center", backgroundColor: COLORS.danger,
+    shadowColor: COLORS.danger, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 8,
+  },
+  confirmDeleteText: { color: COLORS.white, fontSize: 15, fontWeight: "800" },
+  legalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  legalRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.gray3 },
+});
