@@ -30,6 +30,18 @@ export default function ProfileSetup() {
     if (!country) setCountry(detectDeviceCountry());
   }, []);
 
+  // `user` can resolve asynchronously AFTER this screen's initial mount (e.g. a direct
+  // deep-link/fast-reload landing here before AuthContext finishes its bootstrap fetch) —
+  // re-sync the still-empty fields once the real user data arrives, without ever
+  // overwriting anything the user has already started typing/selecting.
+  useEffect(() => {
+    if (!user) return;
+    if (!name && user.name) setName(user.name);
+    if (!gender && user.gender) setGender(user.gender as any);
+    if (!dob && user.dob) setDob(new Date(user.dob));
+    if (!country && user.country) setCountry(user.country);
+  }, [user]);
+
   // This screen is a mandatory onboarding gate — it's never reused as an "edit profile"
   // screen elsewhere in the app — so the hardware back button must never let a user escape
   // it (e.g. to Home) before finishing setup. Blocking the event (returning true) is a no-op

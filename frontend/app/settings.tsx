@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
   rowLabel: { color: COLORS.gray1, fontSize: 13 },
   rowSub: { color: COLORS.gray2, fontSize: 11.5, marginTop: 3 },
-  rowValue: { color: COLORS.white, fontSize: 14, fontWeight: "500", maxWidth: "60%" },
+  rowValue: { color: COLORS.white, fontSize: 14, fontWeight: "500", flexShrink: 1, textAlign: "right", marginLeft: 8 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   busyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
   busyPill: { flex: 1, height: 60, borderRadius: 16, backgroundColor: COLORS.surface2, justifyContent: "center", paddingHorizontal: 16 },

@@ -400,6 +400,27 @@ tap-transition smoothness fix**
   dev-login takes query params, not a JSON body. Test data cleaned up post-test.
 - User's stated intent: import as-is first, review, then request new features next.
 
+**2026-07-20 (Re-import into new pod, this session) — Imported from mtreev6**
+- Fresh `git clone` of `https://github.com/clayjohnson706-art/mtreev6` (rsync'd into `/app`,
+  excluding `.git`, `.emergent`, `node_modules`, `.env` files to preserve pod-specific config).
+  Fresh empty MongoDB in this pod. Installed backend deps (already matched requirements.txt)
+  and new frontend deps via `yarn expo install` (`@gorhom/bottom-sheet`,
+  `@react-native-community/datetimepicker`, `expo-localization`, `expo-notifications`,
+  `expo-sharing`, `react-native-svg`, `react-native-view-shot`, `html2canvas`).
+  `backend/.env`: added `ENABLE_DEV_LOGIN=true`, `ADMIN_EMAILS=nextleveldev706@gmail.com`.
+- Testing agent: 105/105 non-admin-gated backend pytest passing (45 admin-panel test errors
+  expected — require the real admin to sign in once via Google OAuth in this fresh pod, not a
+  regression). Full frontend E2E via dev-login bypass: auth → onboarding → deity → profile-setup
+  → manifest-setup → Home → performed real Hold-to-Manifest ritual (streak persisted correctly)
+  → Settings → Community Wall. No crashes.
+- Fixed 2 low-priority cosmetic issues found by testing agent: (1) `profile-setup.tsx` now
+  re-syncs name/gender/dob/country via `useEffect` when `user` resolves asynchronously after
+  mount (previously only read once at mount, missed on deep-link/fast-reload); (2)
+  `settings.tsx` `rowValue` style changed from a percentage `maxWidth` (which computed oddly
+  inside an un-sized nested wrapper View) to `flexShrink` + `textAlign:"right"`, fixing
+  unnecessary truncation of the Name row value.
+- User's stated intent: import as-is first, review, then request new features next.
+
 **2026-07-20 — Bug fix: onboarding "Next"/"Continue" button unresponsive on real Android device**
 - User report (Expo Go, brand-new install, real Android phone): stuck on onboarding slide 1
   ("Set Your Goal"), tapping "Next" did nothing at all. Screenshot confirmed.
