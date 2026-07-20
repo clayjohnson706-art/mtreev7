@@ -57,8 +57,9 @@ function stripCircleStyle(status: "completed" | "next" | "upcoming", deityColor:
   return { backgroundColor: COLORS.surface2, borderColor: COLORS.gray3 };
 }
 
-// Slightly smaller than before so the Deity card reads a touch more compact.
-const DEITY_SIZE = 210;
+// Slightly smaller than before so the Deity card reads a touch more compact, and so the
+// Daily Streak card below it fits fully on-screen without needing to scroll.
+const DEITY_SIZE = 172;
 
 export default function Home() {
   const router = useRouter();
@@ -454,29 +455,6 @@ export default function Home() {
             </Card>
           </View>
 
-          {/* Affirmation — moved above Deity card, below Moon Phase & Cosmic Energy */}
-          {showAffirmationCard && (
-            <TouchableOpacity
-              testID="affirmation-card"
-              activeOpacity={0.85}
-              onPress={() => isPremium ? setShowAffirmation(true) : router.push("/paywall")}
-              style={{ marginBottom: 12 }}
-            >
-              <Card style={styles.affirmationBig}>
-                <LinearGradient colors={[deity.color + "18", COLORS.surface1]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
-                <View style={styles.affirmHeader}>
-                  <Text style={styles.affirmHeadLabel}>✦ DAILY AFFIRMATION</Text>
-                  <View style={styles.langPill}>
-                    <Text style={styles.langText}>
-                      {shortLang(user?.affirmation_language)}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.affirmBigText} numberOfLines={4}>{affirmationText}</Text>
-              </Card>
-            </TouchableOpacity>
-          )}
-
           {/* Deity Hero — card itself stays still; only the symbol/glow inside animates during ritual */}
           <View style={styles.heroWrap}>
             <View style={styles.heroCard} testID="deity-hero">
@@ -550,6 +528,30 @@ export default function Home() {
                     <Text style={styles.journeyStatusText}>Best {active.max_streak}</Text>
                   </View>
                 </View>
+              </Card>
+            </TouchableOpacity>
+          )}
+
+          {/* Affirmation — order: Moon Phase, Cosmic Energy, Deity, Daily Streak, then
+              Affirmation, so the most glanceable/actionable cards lead. */}
+          {showAffirmationCard && (
+            <TouchableOpacity
+              testID="affirmation-card"
+              activeOpacity={0.85}
+              onPress={() => isPremium ? setShowAffirmation(true) : router.push("/paywall")}
+              style={{ marginBottom: 12 }}
+            >
+              <Card style={styles.affirmationBig}>
+                <LinearGradient colors={[deity.color + "18", COLORS.surface1]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+                <View style={styles.affirmHeader}>
+                  <Text style={styles.affirmHeadLabel}>✦ DAILY AFFIRMATION</Text>
+                  <View style={styles.langPill}>
+                    <Text style={styles.langText}>
+                      {shortLang(user?.affirmation_language)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.affirmBigText} numberOfLines={4}>{affirmationText}</Text>
               </Card>
             </TouchableOpacity>
           )}
@@ -1035,8 +1037,8 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
 
-  row2: { flexDirection: "row", gap: 10, marginBottom: 12 },
-  statCard: { flex: 1, paddingHorizontal: 14, paddingVertical: 10, height: 79, justifyContent: "space-between" },
+  row2: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  statCard: { flex: 1, paddingHorizontal: 14, paddingVertical: 8, height: 66, justifyContent: "space-between" },
   statRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
   miniLabel: { color: COLORS.gray2, fontSize: 9, fontWeight: "700", letterSpacing: 1.2 },
   moonName: { color: COLORS.white, fontSize: 15, fontWeight: "800", fontStyle: "italic", flexShrink: 1 },
@@ -1046,24 +1048,24 @@ const styles = StyleSheet.create({
   miniFill: { height: "100%" },
   dayTag: { color: COLORS.gray2, fontSize: 9 },
 
-  heroWrap: { marginBottom: 12 },
+  heroWrap: { marginBottom: 10 },
   heroCard: {
     borderRadius: 24, backgroundColor: COLORS.surface1,
-    paddingVertical: 20, alignItems: "center", justifyContent: "center",
+    paddingVertical: 12, alignItems: "center", justifyContent: "center",
     overflow: "hidden",
   },
   heroSymbolWrap: { width: DEITY_SIZE, height: DEITY_SIZE, alignItems: "center", justifyContent: "center" },
   heroSymbol: { alignItems: "center", justifyContent: "center" },
   holdEnergyGlow: {
-    position: "absolute", width: 166, height: 166, borderRadius: 999,
+    position: "absolute", width: 136, height: 136, borderRadius: 999,
     shadowOffset: { width: 0, height: 0 }, shadowRadius: 40, shadowOpacity: 1,
   },
   seed: {
     position: "absolute", width: 14, height: 14, borderRadius: 999,
     shadowOpacity: 1, shadowRadius: 30, shadowOffset: { width: 0, height: 0 }, elevation: 20,
   },
-  deityLabel: { fontSize: 18, fontWeight: "300", letterSpacing: 6, fontStyle: "italic", marginTop: 20 },
-  deitySub: { color: COLORS.gray2, fontSize: 11, letterSpacing: 2, marginTop: 8, textTransform: "uppercase" },
+  deityLabel: { fontSize: 17, fontWeight: "300", letterSpacing: 5, fontStyle: "italic", marginTop: 10 },
+  deitySub: { color: COLORS.gray2, fontSize: 10, letterSpacing: 2, marginTop: 4, textTransform: "uppercase" },
 
   affirmationBig: { padding: 20, overflow: "hidden", borderRadius: 20 },
   affirmHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
@@ -1089,7 +1091,7 @@ const styles = StyleSheet.create({
 
   journeyCard: { marginBottom: 12, padding: 18 },
   streakBarCard: { marginTop: 0, padding: 18 },
-  streakCard: { marginTop: 0, padding: 18, overflow: "hidden", borderWidth: 1, borderColor: COLORS.gold + "25" },
+  streakCard: { marginTop: 0, padding: 16, overflow: "hidden", borderWidth: 1, borderColor: COLORS.gold + "25" },
   streakTopRow: { flexDirection: "row", alignItems: "center" },
   streakFlameWrap: { width: 52, height: 52, alignItems: "center", justifyContent: "center" },
   streakFlameGlow: {
@@ -1101,7 +1103,7 @@ const styles = StyleSheet.create({
   streakBigNum: { color: COLORS.white, fontSize: 30, fontWeight: "900" },
   streakUnit: { color: COLORS.gold, fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
   streakMsg: { color: COLORS.gray1, fontSize: 12.5, marginTop: 2, fontStyle: "italic" },
-  streakDivider: { height: 1, backgroundColor: COLORS.gray3, marginTop: 16, marginBottom: 14 },
+  streakDivider: { height: 1, backgroundColor: COLORS.gray3, marginTop: 12, marginBottom: 10 },
 
   weekStripRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   stripCircle: {

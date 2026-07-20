@@ -294,6 +294,45 @@ def clean_user(u: dict) -> dict:
     d["is_admin"] = d.get("email", "").lower() in ADMIN_EMAILS
     return d
 
+def _heal_max_streak(m: dict) -> tuple[dict, bool]:
+    """Self-heals the 'personal best' field: max_streak must never read lower than the
+    current streak_count (this was the root cause of the 'Best 0' display bug — legacy
+    manifestation docs written before max_streak was tracked, or created by an older
+    build, could persist max_streak=0/missing while streak_count kept climbing). Returns
+    the (possibly corrected) doc and whether a correction was made, so callers can decide
+    whether to persist the fix back to Mongo."""
+    if not m:
+        return m, False
+    streak = m.get("streak_count") or 0
+    best = m.get("max_streak") or 0
+    if best < streak:
+        m["max_streak"] = streak
+        return m, True
+    return m, False
+
+async def heal_manifestation(m: dict) -> dict:
+    """Heals a single manifestation dict and persists the correction if one was needed."""
+    m, changed = _heal_max_streak(m)
+    if changed and m.get("id"):
+        await db.manifestations.update_one({"id": m["id"]}, {"$set": {"max_streak": m["max_streak"]}})
+    return m
+
+async def heal_manifestations(items: list) -> list:
+    """Heals a list of manifestation dicts (community wall, leaderboard, saved, garden) and
+    persists any corrections in a single batch update."""
+    to_fix = []
+    for m in items:
+        _, changed = _heal_max_streak(m)
+        if changed and m.get("id"):
+            to_fix.append(m["id"])
+    if to_fix:
+        # Each doc may have a different corrected value, so update individually — the list is
+        # always small (<=50) so this stays cheap and avoids a fragile bulk-write pipeline.
+        for m in items:
+            if m.get("id") in to_fix:
+                await db.manifestations.update_one({"id": m["id"]}, {"$set": {"max_streak": m["max_streak"]}})
+    return items
+
 async def get_current_admin(user: dict = Depends(get_current_user)) -> dict:
     if user.get("email", "").lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -548,6 +587,8 @@ async def get_active(user: dict = Depends(get_current_user)):
     m = await db.manifestations.find_one(
         {"user_id": user["user_id"], "status": "active"}, {"_id": 0}
     )
+    if m:
+        m = await heal_manifestation(m)
     return m
 
 @api_router.post("/manifestations/{mid}/ritual")
@@ -590,9 +631,9 @@ async def perform_ritual(mid: str, req: RitualRequest = RitualRequest(), user: d
                 last = last.replace(tzinfo=timezone.utc)
             streak_continues = (now.date() - last.date()).days == 1
     # Increment day, streak
-    new_day = m["current_day"] + 1
-    new_streak = (m["streak_count"] + 1) if streak_continues else 1
-    max_streak = max(m["max_streak"], new_streak)
+    new_day = m.get("current_day", 0) + 1
+    new_streak = (m.get("streak_count", 0) + 1) if streak_continues else 1
+    max_streak = max(m.get("max_streak", 0), new_streak)
     # Compute new stage
     days_per_stage = max(1, (m["cycle_days"] + 4) // 5)
     new_stage = min(5, (new_day // days_per_stage) + 1)
@@ -669,6 +710,7 @@ async def mark_manifested(mid: str, req: ManifestedRequest, user: dict = Depends
         "achieved_at": now,
     })
     updated = await db.manifestations.find_one({"id": mid}, {"_id": 0})
+    updated = await heal_manifestation(updated)
     return updated
 
 @api_router.post("/manifestations/{mid}/abandon")
@@ -711,6 +753,7 @@ async def get_garden(user: dict = Depends(get_current_user)):
     manifestations = await db.manifestations.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
     m_by_id = {m["id"]: m for m in manifestations}
     result = [{**g, "manifestation": m_by_id[g["manifestation_id"]]} for g in items if g["manifestation_id"] in m_by_id]
+    await heal_manifestations([r["manifestation"] for r in result])
     return result
 
 # ------------------- Community Wall -------------------
@@ -748,6 +791,7 @@ async def wall(
         now = datetime.now(timezone.utc)
         ids = [i["id"] for i in items]
         await db.manifestations.update_many({"id": {"$in": ids}}, {"$set": {"last_shown_at": now}})
+    items = await heal_manifestations(items)
     return items
 
 @api_router.get("/community/leaderboard")
@@ -757,6 +801,7 @@ async def leaderboard(user: dict = Depends(get_current_user)):
     items = await db.manifestations.find(
         {"is_public": True}, {"_id": 0}
     ).sort("max_streak", -1).limit(50).to_list(50)
+    items = await heal_manifestations(items)
     return items
 
 @api_router.post("/community/save/{mid}")
@@ -781,6 +826,7 @@ async def get_saved(user: dict = Depends(get_current_user)):
     saved = await db.saved_manifestations.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
     mids = [s["manifestation_id"] for s in saved]
     result = await db.manifestations.find({"id": {"$in": mids}}, {"_id": 0}).to_list(len(mids))
+    result = await heal_manifestations(result)
     return result
 
 # ------------------- Admin API -------------------

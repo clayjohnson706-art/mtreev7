@@ -58,13 +58,18 @@ export default function Splash() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.void, alignItems: "center", justifyContent: "center" },
-  logoWrap: { alignItems: "center", justifyContent: "center" },
-  logo: { width: 150, height: 150 * (1383 / 947) },
+  // Extra vertical padding around the logo (beyond the image's own internal margins) so the
+  // "mTree" wordmark at the bottom of the artwork always has clear breathing room and is never
+  // perceived as cramped/clipped against the tagline below it, on any screen size.
+  logoWrap: { alignItems: "center", justifyContent: "center", paddingVertical: 12 },
+  // resizeMode="contain" never crops — width/height kept at the image's true aspect ratio
+  // (947 x 1383 source) so the full wordmark, including descenders, always renders intact.
+  logo: { width: 148, height: 148 * (1383 / 947) },
   tagline: {
     color: COLORS.gray1,
     fontSize: 12,
     letterSpacing: 3,
-    marginTop: 20,
+    marginTop: 24,
     textTransform: "uppercase",
   },
 });

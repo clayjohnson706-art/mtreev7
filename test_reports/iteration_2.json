@@ -1,0 +1,38 @@
+{
+  "summary": "Tested the 3 P0 fixes for this session: (1) 'Best 0' max_streak healing bug fix, (2) splash logo clipping fix, (3) home screen card reorder + Daily Streak card fits without scrolling. All 3 verified working end-to-end via backend pytest + live UI flow (dev-login -> create manifestation -> perform hold-to-manifest ritual -> verify UI). No regressions found in Goal/Sacrifice, Hustle/Fasting cards, Journey card, Streak Detail modal, Delete Manifestation, or Settings navigation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "app/onboarding.tsx (onboarding-skip)",
+        "issue": "Skip button uses onPressIn (not onPress) for navigation to /paywall. In the web preview, simulated mouse clicks (both page.click and manual mouse.down/up sequences) on this TouchableOpacity did not reliably trigger the onPressIn handler / did not fire the expected PATCH /api/profile call, so the Skip flow got stuck on the same onboarding slide across 3 different click strategies. This is NOT part of the 3 P0 items under test (worked around it via direct API calls to reach Home), but flagging since it may affect real users tapping fast/lightly on web. Recommend switching to onPress for reliability, or verify onPressIn works consistently across RN Web pointer event handling."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_streak_healing_fix.py",
+    "/app/test_reports/pytest/pytest_streak_healing.xml"
+  ],
+  "action_items": [
+    "(Non-blocking, informational) Consider changing onboarding.tsx 'Skip' TouchableOpacity from onPressIn to onPress for more reliable web-click handling.",
+    "No fixes required for the 3 P0 items tested — all verified working correctly."
+  ],
+  "critical_code_review_comments": [
+    "_heal_max_streak / heal_manifestation / heal_manifestations in server.py correctly implement the self-healing invariant (max_streak = max(max_streak, streak_count)) and are applied consistently across get_active, leaderboard, saved, garden, and wall endpoints — good defensive coverage.",
+    "perform_ritual endpoint already computes max_streak = max(m.get('max_streak', 0), new_streak) at write-time, so healing is a secondary safety net for legacy/edge-case data as intended — logic is sound and doesn't conflict.",
+    "home.tsx card order (Moon/Cosmic row -> Deity Hero -> Daily Streak -> Daily Affirmation -> Your Journey) matches the required spec exactly, and DEITY_SIZE=172 reduction appears to have achieved the 'fits without scroll' goal on a 390x844 viewport."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (7/7 pytest tests passed)", "frontend": "100% of in-scope P0 items verified"},
+  "seed_data_creation": "Created one live manifestation for test@mtree.dev (goal=money, sacrifice=sugar, cycle=21, affirmation/fasting/hustle enabled) via API and performed one real ritual on it to reach streak_count=1/max_streak=1. Left in place as-is; not real user data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test@mtree.dev now has an active manifestation with streak_count=1, max_streak=1, affirmation/fasting/hustle enabled, onboarding_done=true, is_premium=true (set via PATCH during test setup). If the next session tests notifications or wall detail view, this account can be reused or the manifestation deleted via the in-app Delete Manifestation flow (verified working). Note: to log in via browser automation in future sessions, raw localStorage.setItem does NOT work directly with the AsyncStorage web shim -- must JSON.stringify() the token value before setItem, i.e. localStorage.setItem('mtree_session_token', JSON.stringify(token)), then page.reload().",
+  "rca_of_issue": "Not applicable - all 3 P0 items passed testing without needing fixes. No bugs found requiring RCA. The only note is the onboarding Skip button (out of scope, informational only, see react_native_issues)."
+}
