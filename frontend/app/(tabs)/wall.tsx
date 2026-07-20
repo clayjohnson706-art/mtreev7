@@ -339,10 +339,11 @@ function DetailPanel({ manifestation, onClose, onToggleSave, isSaved }: any) {
   const d = DEITIES.find((x) => x.id === m.deity_id) ?? DEITIES[0];
   const goal = GOAL_CATEGORIES.find((g) => g.key === m.goal_category);
   const sac = SACRIFICE_CATEGORIES.find((s) => s.key === m.sacrifice_category);
-  const goalText = m.goal_category === "custom" ? "✨ Personal Goal" : `${goal?.emoji ?? "📌"} ${goal?.label ?? m.goal_category}`;
-  const sacText = m.sacrifice_category === "custom" ? "🔒 Personal Sacrifice" : `${sac?.emoji ?? "📌"} ${sac?.label ?? m.sacrifice_category}`;
+  const goalText = m.goal_category === "custom" ? (m.goal_custom || "Personal Goal") : (goal?.label ?? m.goal_category);
+  const sacText = m.sacrifice_category === "custom" ? (m.sacrifice_custom || "Personal Sacrifice") : (sac?.label ?? m.sacrifice_category);
   const created = m.created_at ? new Date(m.created_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : "-";
   const completed = m.manifested_at ? new Date(m.manifested_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : null;
+  const pctComplete = Math.min(100, Math.round(((m.current_day ?? 0) / (m.cycle_days || 1)) * 100));
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient colors={[d.color + "22", COLORS.surface1]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
@@ -354,39 +355,71 @@ function DetailPanel({ manifestation, onClose, onToggleSave, isSaved }: any) {
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         <View style={{ alignItems: "center" }}>
-          <DeityStone deityName={d.name} color={d.color} glow={d.glow} size={92} glowIntensity={1.4} />
+          <View style={styles.deityStoneWrap}>
+            <DeityStone deityName={d.name} color={d.color} glow={d.glow} size={92} glowIntensity={1.4} />
+            {m.status === "manifested" && (
+              <View style={styles.manifestedBadge} testID="detail-manifested-badge">
+                <Ionicons name="sparkles" size={13} color={COLORS.void} />
+              </View>
+            )}
+          </View>
           <Text style={[styles.detailDeity, { color: d.color }]}>{d.name.toUpperCase().split("").join(" ")}</Text>
           <Text style={styles.detailUser}>{m.user_name || "Anonymous"}</Text>
+          <View style={[styles.statusPill, { backgroundColor: (m.status === "manifested" ? COLORS.success : COLORS.warning) + "20" }]}>
+            <Text style={{ color: m.status === "manifested" ? COLORS.success : COLORS.warning, fontSize: 12, fontWeight: "800" }}>
+              {m.status === "manifested" ? "✅ Manifested" : `🌱 Day ${m.current_day}/${m.cycle_days}`}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.detailBlock}>
-          <DetailRow label="GOAL" value={goalText} />
-          <Divider />
-          <DetailRow label="SACRIFICE" value={sacText} />
-          <Divider />
-          <DetailRow label="DURATION" value={`${m.cycle_days} days`} />
-          <Divider />
-          <DetailRow label="AFFIRMATION" value={m.affirmation_enabled ? "On" : "Off"} />
-          <Divider />
-          <DetailRow label="FASTING" value={m.fasting_enabled ? "Yes ✓" : "No"} />
+        {/* Stat cards — same visual language as the Home Daily Streak card's stat boxes */}
+        <View style={styles.statGrid}>
+          <StatBox icon="flame" color={COLORS.gold} value={String(m.streak_count ?? 0)} label="STREAK" />
+          <StatBox icon="trophy" color={COLORS.gold} value={String(m.max_streak ?? 0)} label="LONGEST STREAK" />
+          <StatBox icon="checkmark-done" color={COLORS.success} value={String(m.current_day ?? 0)} label="TOTAL DAYS" />
         </View>
 
-        <View style={styles.detailBlock}>
-          <DetailRow label="STATUS" value={m.status === "manifested" ? "✅ Manifested" : m.status === "active" ? "🌱 Active" : m.status} />
-          <Divider />
-          <DetailRow label="STREAK" value={`${m.streak_count} days 🔥`} />
-          <Divider />
-          <DetailRow label="MAX STREAK" value={`${m.max_streak} days`} />
-          <Divider />
-          <DetailRow label="COSMIC AT START" value={m.cosmic_level_at_start != null ? `${m.cosmic_level_at_start}%` : "-"} />
-          <Divider />
-          <DetailRow label="DONATED" value={m.donated ? "Yes ✓" : "No"} />
+        <View style={{ marginTop: 18 }}>
+          <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>CYCLE PROGRESS</Text>
+            <Text style={[styles.progressLabel, { color: d.color }]}>{pctComplete}%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${pctComplete}%`, backgroundColor: d.color }]} />
+          </View>
         </View>
+
+        {/* Goal + Sacrifice — icon tiles, same pattern as Home's Goal/Sacrifice cards */}
+        <View style={styles.tileRow}>
+          <IconTile emoji={m.goal_category === "custom" ? "✨" : (goal?.emoji ?? "🎯")} label="GOAL" value={goalText} />
+          <IconTile emoji={m.sacrifice_category === "custom" ? "🔒" : (sac?.emoji ?? "🔥")} label="SACRIFICE" value={sacText} />
+        </View>
+        <View style={styles.tileRow}>
+          <IconTile icon="calendar" label="DURATION" value={`${m.cycle_days} days`} />
+          <IconTile
+            icon={m.fasting_enabled ? "restaurant" : "restaurant-outline"}
+            label="FASTING"
+            value={m.fasting_enabled ? "Linked ✓" : "No"}
+            color={m.fasting_enabled ? COLORS.success : undefined}
+          />
+        </View>
+
+        {/* Testimony — the manifested story itself, front and center for a "wall of proof" feel */}
+        {!!m.testimony && (
+          <View style={styles.testimonyBox} testID="detail-testimony">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="chatbox-ellipses" size={14} color={COLORS.gold} />
+              <Text style={styles.testimonyLabel}>THEIR STORY</Text>
+            </View>
+            <Text style={styles.testimonyText}>&ldquo;{m.testimony}&rdquo;</Text>
+          </View>
+        )}
 
         <View style={styles.detailBlock}>
           <DetailRow label="CREATED" value={created} />
           {m.moon_phase_at_start ? (<><Divider /><DetailRow label="MOON AT START" value={`🌙 ${m.moon_phase_at_start}`} /></>) : null}
           {completed && (<><Divider /><DetailRow label="COMPLETED" value={completed} /></>)}
+          {m.donated && (<><Divider /><DetailRow label="DONATED" value="Yes ✓ 🙏" /></>)}
         </View>
 
         <TouchableOpacity
@@ -401,6 +434,30 @@ function DetailPanel({ manifestation, onClose, onToggleSave, isSaved }: any) {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+    </View>
+  );
+}
+
+function StatBox({ icon, color, value, label }: { icon: keyof typeof Ionicons.glyphMap; color: string; value: string; label: string }) {
+  return (
+    <View style={styles.statBox}>
+      <Ionicons name={icon} size={18} color={color} />
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function IconTile({
+  icon, emoji, label, value, color,
+}: { icon?: keyof typeof Ionicons.glyphMap; emoji?: string; label: string; value: string; color?: string }) {
+  return (
+    <View style={styles.iconTile}>
+      <View style={styles.iconTileIcon}>
+        {emoji ? <Text style={{ fontSize: 20 }}>{emoji}</Text> : icon ? <Ionicons name={icon} size={20} color={COLORS.gold} /> : null}
+      </View>
+      <Text style={styles.iconTileLabel}>{label}</Text>
+      <Text style={[styles.iconTileValue, color && { color }]} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -458,12 +515,33 @@ const styles = StyleSheet.create({
   modalClose: { position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: 999, backgroundColor: COLORS.surface2, alignItems: "center", justifyContent: "center", zIndex: 5 },
   detailDeity: { fontSize: 16, fontWeight: "300", letterSpacing: 5, fontStyle: "italic", marginTop: 14 },
   detailUser: { color: COLORS.white, fontSize: 20, fontWeight: "800", marginTop: 8 },
+  deityStoneWrap: { position: "relative" },
+  manifestedBadge: {
+    position: "absolute", bottom: -2, right: -2, width: 28, height: 28, borderRadius: 999,
+    backgroundColor: COLORS.gold, alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: COLORS.surface1,
+  },
+  statusPill: { marginTop: 10, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999 },
+  statGrid: { flexDirection: "row", gap: 10, marginTop: 20 },
+  statBox: { flex: 1, alignItems: "center", backgroundColor: COLORS.surface2, borderRadius: 14, paddingVertical: 14, gap: 4 },
+  statValue: { color: COLORS.white, fontSize: 20, fontWeight: "900", marginTop: 2 },
+  statLabel: { color: COLORS.gray2, fontSize: 8.5, fontWeight: "700", letterSpacing: 1, textAlign: "center" },
+  progressRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  progressLabel: { color: COLORS.gray2, fontSize: 10.5, fontWeight: "700", letterSpacing: 1.5 },
+  progressTrack: { height: 8, borderRadius: 999, backgroundColor: COLORS.surface2, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 999 },
+  tileRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  iconTile: { flex: 1, backgroundColor: COLORS.surface2, borderRadius: 16, padding: 14, alignItems: "center", gap: 6 },
+  iconTileIcon: { width: 40, height: 40, borderRadius: 999, backgroundColor: COLORS.gold + "18", alignItems: "center", justifyContent: "center" },
+  iconTileLabel: { color: COLORS.gray2, fontSize: 9.5, fontWeight: "700", letterSpacing: 1.5 },
+  iconTileValue: { color: COLORS.white, fontSize: 13, fontWeight: "700", textAlign: "center" },
   detailBlock: { marginTop: 18, backgroundColor: COLORS.surface2, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 4 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
   rowLabel: { color: COLORS.gray2, fontSize: 11, fontWeight: "700", letterSpacing: 1.5 },
   rowValue: { color: COLORS.white, fontSize: 14, fontWeight: "600", maxWidth: "60%", textAlign: "right" },
   divider: { height: 1, backgroundColor: COLORS.gray3 + "60" },
-  testimonyBox: { marginTop: 18, marginBottom: 8, padding: 18, borderRadius: 18, backgroundColor: COLORS.gold + "10" },
+  testimonyBox: { marginTop: 18, padding: 18, borderRadius: 18, backgroundColor: COLORS.gold + "10", borderWidth: 1, borderColor: COLORS.gold + "25" },
+  testimonyLabel: { color: COLORS.gold, fontSize: 10.5, fontWeight: "800", letterSpacing: 1.5 },
   testimonyText: { color: COLORS.white, fontSize: 15, fontStyle: "italic", marginTop: 8, lineHeight: 24 },
   saveCta: { marginTop: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, height: 54, borderRadius: 16 },
   saveCtaText: { fontSize: 14, fontWeight: "700" },

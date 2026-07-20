@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
   journeyFill: { height: "100%" },
   journeyMeta: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
   journeyPct: { color: COLORS.white, fontSize: 13, fontWeight: "700" },
-  journeyStatusText: { fontSize: 12, fontWeight: "700" },
+  journeyStatusText: { color: COLORS.gold, fontSize: 12, fontWeight: "700" },
   jGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 14, marginHorizontal: -6 },
   jCell: { width: "33.33%", paddingHorizontal: 6, paddingVertical: 8 },
   jLabel: { color: COLORS.gray2, fontSize: 9, letterSpacing: 1.5, fontWeight: "700" },

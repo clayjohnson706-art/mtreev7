@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { api, clearToken, getToken, saveToken } from "@/src/utils/api";
-import { rescheduleReminders } from "@/src/utils/notifications";
+import { rescheduleReminders, scheduleStreakReminder, cancelStreakReminder } from "@/src/utils/notifications";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
@@ -24,6 +24,8 @@ export type User = {
   busy_hours_enabled?: boolean;
   reminder_mode?: string;
   reminder_times?: string[];
+  streak_reminder_enabled?: boolean;
+  streak_reminder_time?: string;
   onboarding_done: boolean;
   profile_done: boolean;
   tour_done: boolean;
@@ -129,6 +131,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user.reminder_times ?? []
     ).catch(() => {});
   }, [user?.notification_count, user?.notification_busy_start, user?.notification_busy_end, user?.reminder_mode, user?.reminder_times]);
+
+  // Same safety-net pattern for the single daily Streak Reminder — re-syncs on launch and
+  // whenever the enabled flag or chosen time changes, independent of the ritual-reminder
+  // schedule above.
+  const lastStreakKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const key = `${user.streak_reminder_enabled ?? false}|${user.streak_reminder_time ?? "20:00"}`;
+    if (lastStreakKeyRef.current === key) return;
+    lastStreakKeyRef.current = key;
+    if (user.streak_reminder_enabled) {
+      scheduleStreakReminder(user.streak_reminder_time ?? "20:00").catch(() => {});
+    } else {
+      cancelStreakReminder().catch(() => {});
+    }
+  }, [user?.streak_reminder_enabled, user?.streak_reminder_time]);
 
   const signIn = useCallback(async () => {
     const redirectUrl = Platform.OS === "web" && typeof window !== "undefined"

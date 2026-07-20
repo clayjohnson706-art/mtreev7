@@ -178,6 +178,56 @@ export async function cancelAllReminders() {
   } catch {}
 }
 
+// ------------------- Daily Streak Reminder -------------------
+// A single, always-free "don't break your streak" nudge — deliberately separate from the
+// per-manifestation Reminder Center above (up to 10x/day + busy-hours, premium-gated). This is
+// one simple daily repeating local notification at a user-chosen time, managed independently
+// so toggling/rescheduling it never touches the ritual-reminder schedule above.
+const STREAK_REMINDER_ID = "mtree-streak-reminder";
+const STREAK_TITLE = "🔥 Don't Break Your Streak!";
+const STREAK_BODY = "Complete today's ritual before the day ends to keep your streak alive.";
+
+export async function cancelStreakReminder() {
+  if (!Notifications) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(STREAK_REMINDER_ID);
+  } catch {}
+}
+
+// Schedules (replacing any previous one) a daily repeating local notification at `time`
+// ("HH:MM", 24h). Returns whether it actually got OS-scheduled + the resulting permission
+// state, mirroring rescheduleReminders() above so callers can surface a clear notice when
+// notifications are blocked at the OS level instead of silently doing nothing.
+export async function scheduleStreakReminder(
+  time: string
+): Promise<{ scheduled: boolean; permission: NotificationPermissionState }> {
+  if (!Notifications) return { scheduled: false, permission: "unavailable" };
+  await cancelStreakReminder();
+  const granted = await requestNotificationPermissions();
+  if (!granted) return { scheduled: false, permission: await getNotificationPermissionState() };
+  const [h, m] = (time || "20:00").split(":").map(Number);
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier: STREAK_REMINDER_ID,
+      content: {
+        title: STREAK_TITLE,
+        body: STREAK_BODY,
+        sound: true,
+        data: { type: "streak-reminder" },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: h,
+        minute: m,
+        repeats: true,
+      } as any,
+    });
+  } catch {
+    return { scheduled: false, permission: "granted" };
+  }
+  return { scheduled: true, permission: "granted" };
+}
+
 // Clears any previously scheduled mTree reminders and re-schedules local daily repeating
 // notifications. In "custom" mode, `customTimes` (HH:MM strings) are used verbatim; otherwise
 // `count` random times are generated, always excluding the busy/Do-Not-Disturb window. Safe to

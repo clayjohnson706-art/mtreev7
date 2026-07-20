@@ -129,6 +129,10 @@ class UserProfile(BaseModel):
     busy_hours_enabled: bool = False
     reminder_mode: str = "random"
     reminder_times: List[str] = []
+    # Single, always-free "don't break your streak" daily nudge — separate from the premium
+    # per-manifestation Reminder Center above (which supports up to 10x/day + custom scheduling).
+    streak_reminder_enabled: bool = False
+    streak_reminder_time: str = "20:00"
     onboarding_done: bool = False
     profile_done: bool = False
     tour_done: bool = False
@@ -149,6 +153,8 @@ class ProfileUpdate(BaseModel):
     busy_hours_enabled: Optional[bool] = None
     reminder_mode: Optional[str] = None
     reminder_times: Optional[List[str]] = None
+    streak_reminder_enabled: Optional[bool] = None
+    streak_reminder_time: Optional[str] = None
     onboarding_done: Optional[bool] = None
     profile_done: Optional[bool] = None
     tour_done: Optional[bool] = None
@@ -377,6 +383,8 @@ async def dev_login(email: str = "test@mtree.dev", name: str = "Test User"):
             "affirmation_language": "english", "notification_count": 0,
             "notification_busy_start": None, "notification_busy_end": None,
             "busy_hours_enabled": False,
+            "streak_reminder_enabled": False,
+            "streak_reminder_time": "20:00",
             "onboarding_done": False, "profile_done": False, "tour_done": False,
             "journey_intro_seen": False,
             "created_at": now,
@@ -431,6 +439,8 @@ async def auth_session(req: SessionRequest):
             "notification_busy_start": None,
             "notification_busy_end": None,
             "busy_hours_enabled": False,
+            "streak_reminder_enabled": False,
+            "streak_reminder_time": "20:00",
             "onboarding_done": False,
             "profile_done": False,
             "tour_done": False,

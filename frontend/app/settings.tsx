@@ -1,17 +1,49 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform, Linking, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { COLORS, DEITIES, LANGUAGES, COUNTRIES, flagEmoji } from "@/src/theme";
 import AnimatedBackground from "@/src/components/AnimatedBackground";
-import { Card, GhostButton, FilledButton } from "@/src/components/ui";
+import { Card, GhostButton, FilledButton, Chip } from "@/src/components/ui";
 import LanguagePicker from "@/src/components/LanguagePicker";
 import CountryPicker from "@/src/components/CountryPicker";
 import ReminderCenter from "@/src/components/ReminderCenter";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/utils/api";
 import { LEGAL_LINKS } from "@/src/utils/legalLinks";
+import {
+  scheduleStreakReminder,
+  cancelStreakReminder,
+  getNotificationPermissionState,
+} from "@/src/utils/notifications";
+
+// Local helpers for the Daily Streak Reminder time picker (mirrors the pattern used by
+// ReminderCenter's busy-hours/custom-time pickers).
+function timeToDate(hhmm: string | null | undefined): Date {
+  const d = new Date();
+  if (hhmm && /^\d{2}:\d{2}$/.test(hhmm)) {
+    const [h, m] = hhmm.split(":").map(Number);
+    d.setHours(h); d.setMinutes(m);
+  } else {
+    d.setHours(20); d.setMinutes(0);
+  }
+  d.setSeconds(0); d.setMilliseconds(0);
+  return d;
+}
+function dateToTime(d: Date): string {
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+function formatTime(hhmm: string | null | undefined): string {
+  if (!hhmm) return "—";
+  const [h, m] = hhmm.split(":").map(Number);
+  const suf = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${suf}`;
+}
 
 export default function Settings() {
   const router = useRouter();
@@ -27,6 +59,70 @@ export default function Settings() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const isPremium = !!user?.is_premium;
+
+  // Daily Streak Reminder — a single, always-free daily nudge (independent of the premium
+  // multi-time Reminder Center above). Local state mirrors the profile so the Switch/time row
+  // flip instantly, then persists via updateProfile + (re)schedules or cancels the local
+  // notification to match.
+  const [streakReminderEnabled, setStreakReminderEnabled] = useState<boolean>(user?.streak_reminder_enabled ?? false);
+  const [streakReminderTime, setStreakReminderTime] = useState<string>(user?.streak_reminder_time ?? "20:00");
+  const [showStreakTimePicker, setShowStreakTimePicker] = useState(false);
+  const [streakPermBlocked, setStreakPermBlocked] = useState(false);
+  React.useEffect(() => {
+    if (user) {
+      setStreakReminderEnabled(user.streak_reminder_enabled ?? false);
+      setStreakReminderTime(user.streak_reminder_time ?? "20:00");
+    }
+  }, [user?.streak_reminder_enabled, user?.streak_reminder_time]);
+
+  const onToggleStreakReminder = async (v: boolean) => {
+    setStreakReminderEnabled(v); // instant UI feedback
+    try {
+      await updateProfile({ streak_reminder_enabled: v });
+    } catch {
+      setStreakReminderEnabled(!v);
+      return;
+    }
+    if (!v) {
+      await cancelStreakReminder();
+      setStreakPermBlocked(false);
+      return;
+    }
+    const state = await getNotificationPermissionState();
+    if (state === "blocked") { setStreakPermBlocked(true); return; }
+    const doSchedule = async () => {
+      const result = await scheduleStreakReminder(streakReminderTime);
+      setStreakPermBlocked(!result.scheduled && result.permission === "blocked");
+    };
+    if (state === "undetermined" || state === "denied") {
+      Alert.alert(
+        "Enable Notifications?",
+        "Allow mTree to send you one gentle reminder a day so you never break your streak.",
+        [
+          { text: "Not Now", style: "cancel" },
+          { text: "Allow", onPress: doSchedule },
+        ]
+      );
+    } else {
+      await doSchedule();
+    }
+  };
+
+  const applyStreakTime = async (t: string) => {
+    setStreakReminderTime(t);
+    try {
+      await updateProfile({ streak_reminder_time: t });
+      if (streakReminderEnabled) {
+        const result = await scheduleStreakReminder(t);
+        setStreakPermBlocked(!result.scheduled && result.permission === "blocked");
+      }
+    } catch {}
+  };
+
+  const onStreakPickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS !== "ios") setShowStreakTimePicker(false);
+    if (event.type === "set" && selected) applyStreakTime(dateToTime(selected));
+  };
 
   // Username edit — ONLY the name is editable here; email + gender stay read-only (set once
   // during sign-up / profile-setup and never exposed as editable fields in this screen).
@@ -182,6 +278,55 @@ export default function Settings() {
               </View>
               <Ionicons name={active ? "chevron-forward" : "lock-closed"} size={18} color={COLORS.gray2} />
             </View>
+          </Card>
+
+          <Text style={styles.section}>DAILY STREAK REMINDER</Text>
+          <Card testID="settings-streak-reminder-card">
+            {streakPermBlocked && (
+              <View style={styles.permBanner} testID="streak-reminder-permission-banner">
+                <Ionicons name="notifications-off-outline" size={16} color={COLORS.warning} />
+                <Text style={styles.permBannerText}>
+                  Notifications are off for mTree in your device settings.
+                </Text>
+                <TouchableOpacity
+                  testID="streak-reminder-open-settings"
+                  onPress={() => Linking.openSettings()}
+                  style={styles.permBannerBtn}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.permBannerBtnText}>Open Settings</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <View style={styles.row}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={styles.rowLabel}>Remind me daily</Text>
+                <Text style={styles.rowSub}>
+                  {streakReminderEnabled ? `Once a day at ${formatTime(streakReminderTime)}` : "Off — never miss your streak"}
+                </Text>
+              </View>
+              <Switch
+                testID="settings-streak-reminder-toggle"
+                value={streakReminderEnabled}
+                onValueChange={onToggleStreakReminder}
+                trackColor={{ true: COLORS.gold, false: COLORS.gray3 }}
+                thumbColor={COLORS.white}
+              />
+            </View>
+            {streakReminderEnabled && (
+              <TouchableOpacity
+                testID="settings-streak-reminder-time"
+                onPress={() => setShowStreakTimePicker(true)}
+                style={[styles.row, { borderTopWidth: 1, borderTopColor: COLORS.gray3, marginTop: 4, paddingTop: 12 }]}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.rowLabel}>Reminder Time</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[styles.rowValue, { color: COLORS.gold }]}>{formatTime(streakReminderTime)}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={COLORS.gray2} />
+                </View>
+              </TouchableOpacity>
+            )}
           </Card>
 
           <Text style={styles.section}>AFFIRMATION {!isPremium && "🔒"}</Text>
@@ -443,6 +588,68 @@ export default function Settings() {
             </Pressable>
           </Pressable>
         </Modal>
+
+        {/* Daily Streak Reminder — time picker (Android inline, iOS bottom-sheet spinner,
+            Web quick-preset chips — same platform pattern as ReminderCenter's pickers) */}
+        {Platform.OS === "android" && showStreakTimePicker && (
+          <DateTimePicker
+            value={timeToDate(streakReminderTime)}
+            mode="time"
+            display="clock"
+            is24Hour={false}
+            onChange={onStreakPickerChange}
+          />
+        )}
+        {Platform.OS === "ios" && (
+          <Modal transparent visible={showStreakTimePicker} animationType="slide" onRequestClose={() => setShowStreakTimePicker(false)}>
+            <View style={styles.iosPickerWrap}>
+              <View style={styles.iosPickerCard}>
+                <View style={styles.iosPickerHeader}>
+                  <TouchableOpacity onPress={() => setShowStreakTimePicker(false)}>
+                    <Text style={{ color: COLORS.gray1, fontSize: 15 }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: COLORS.white, fontSize: 15, fontWeight: "700" }}>Reminder Time</Text>
+                  <TouchableOpacity onPress={() => setShowStreakTimePicker(false)}>
+                    <Text style={{ color: COLORS.gold, fontSize: 15, fontWeight: "700" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={timeToDate(streakReminderTime)}
+                  mode="time"
+                  display="spinner"
+                  onChange={(_, d) => { if (d) applyStreakTime(dateToTime(d)); }}
+                  themeVariant="dark"
+                  textColor={COLORS.white}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {Platform.OS === "web" && showStreakTimePicker && (
+          <Modal transparent visible={showStreakTimePicker} animationType="fade" onRequestClose={() => setShowStreakTimePicker(false)}>
+            <Pressable style={styles.centerBackdrop} onPress={() => setShowStreakTimePicker(false)}>
+              <Pressable style={styles.lockCard} onPress={(e) => e.stopPropagation()} testID="streak-time-web-card">
+                <Text style={styles.lockTitle}>Reminder Time</Text>
+                <View style={[styles.chipWrap, { marginTop: 16, justifyContent: "center" }]}>
+                  {["06:00", "07:00", "08:00", "09:00", "12:00", "14:00", "16:00", "18:00", "20:00", "21:00", "22:00", "23:00"].map((t) => (
+                    <Chip
+                      key={t}
+                      label={formatTime(t)}
+                      selected={streakReminderTime === t}
+                      onPress={() => applyStreakTime(t)}
+                    />
+                  ))}
+                </View>
+                <FilledButton
+                  testID="streak-time-web-done"
+                  label="Done"
+                  onPress={() => setShowStreakTimePicker(false)}
+                  style={{ marginTop: 20, alignSelf: "stretch" }}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
       </SafeAreaView>
       <LanguagePicker
         visible={showLangPicker}
@@ -537,6 +744,14 @@ const styles = StyleSheet.create({
   segText: { color: COLORS.gray1, fontSize: 13, fontWeight: "600" },
   segTextActive: { color: COLORS.void, fontWeight: "800" },
   pill: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999 },
+  permBanner: {
+    flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8,
+    backgroundColor: COLORS.warning + "16", borderWidth: 1, borderColor: COLORS.warning + "40",
+    borderRadius: 14, padding: 12, marginBottom: 10,
+  },
+  permBannerText: { color: COLORS.gray1, fontSize: 12, lineHeight: 16, flex: 1, minWidth: 120 },
+  permBannerBtn: { backgroundColor: COLORS.warning, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
+  permBannerBtnText: { color: COLORS.void, fontSize: 12, fontWeight: "800" },
   iosPickerWrap: { flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" },
   iosPickerCard: { backgroundColor: COLORS.surface1, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16 },
   iosPickerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 12 },
