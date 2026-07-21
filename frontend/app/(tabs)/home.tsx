@@ -725,15 +725,11 @@ export default function Home() {
               </TouchableOpacity>
               <TouchableOpacity
                 testID="manifested-btn"
-                onPressIn={startCameTrueHold}
-                onPressOut={endCameTrueHold}
-                style={[styles.actionBtn, styles.manifestedBtn]}
-                activeOpacity={0.85}
+                disabled
+                style={[styles.actionBtn, styles.manifestedBtn, styles.manifestedBtnDisabled]}
+                activeOpacity={1}
               >
-                <Text style={[styles.actionText, { color: COLORS.void }]}>
-                  {holdingCameTrue ? "HOLD..." : "✦ Came True"}
-                </Text>
-                <Animated.View style={[styles.holdProgress, { backgroundColor: COLORS.void, opacity: 0.35 }, cameTrueStyle]} />
+                <Text style={[styles.actionText, { color: COLORS.gray2 }]}>✦ Came True</Text>
               </TouchableOpacity>
             </View>
           )}
