@@ -21,6 +21,12 @@ type Step = "donation" | "share" | "done";
 // for display (mirrors how subscription pricing in PRICING/formatPrice works).
 const DONATION_TIERS_INR = [101, 201, 501, 1001, 10001, 50001];
 
+// Donations require real payment processing (Google Play Billing on Android). Until that's
+// integrated, no payment collection UI should ever be shown to users — flip this back to
+// `true` once Play Billing is wired up. Everything below reacts to this single flag; nothing
+// else needs to change to bring donations back later.
+const DONATIONS_ENABLED = false;
+
 export default function Success() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -225,7 +231,7 @@ export default function Success() {
 
           {/* Stepper */}
           <View style={styles.stepper}>
-            <StepDot label="Donation" active={step === "donation"} done={step !== "donation"} />
+            <StepDot label={DONATIONS_ENABLED ? "Donation" : "Reflect"} active={step === "donation"} done={step !== "donation"} />
             <View style={styles.stepLine} />
             <StepDot label="Share" active={step === "share"} done={step === "done"} />
           </View>
@@ -244,43 +250,57 @@ export default function Success() {
                 maxLength={500}
               />
 
-              <Card style={{ marginTop: 20, overflow: "hidden" }}>
-                <LinearGradient colors={[COLORS.gold + "18", COLORS.surface1]} style={StyleSheet.absoluteFillObject} />
-                <Text style={styles.donateTitle}>Would you like to give back?</Text>
-                <Text style={styles.donateSub}>Support the cosmic energy. Choose an amount.</Text>
-                <View style={styles.tierGrid}>
-                  {DONATION_TIERS_INR.map((inr) => {
-                    const active = selectedTierInr === inr;
-                    return (
-                      <TouchableOpacity
-                        key={inr}
-                        testID={`success-donation-tier-${inr}`}
-                        onPress={() => setSelectedTierInr(inr)}
-                        style={[styles.tierChip, active && styles.tierChipActive]}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={[styles.tierChipText, active && styles.tierChipTextActive]}>
-                          {formatPrice(inr, user?.country)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </Card>
+              {DONATIONS_ENABLED && (
+                <Card style={{ marginTop: 20, overflow: "hidden" }}>
+                  <LinearGradient colors={[COLORS.gold + "18", COLORS.surface1]} style={StyleSheet.absoluteFillObject} />
+                  <Text style={styles.donateTitle}>Would you like to give back?</Text>
+                  <Text style={styles.donateSub}>Support the cosmic energy. Choose an amount.</Text>
+                  <View style={styles.tierGrid}>
+                    {DONATION_TIERS_INR.map((inr) => {
+                      const active = selectedTierInr === inr;
+                      return (
+                        <TouchableOpacity
+                          key={inr}
+                          testID={`success-donation-tier-${inr}`}
+                          onPress={() => setSelectedTierInr(inr)}
+                          style={[styles.tierChip, active && styles.tierChipActive]}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={[styles.tierChipText, active && styles.tierChipTextActive]}>
+                            {formatPrice(inr, user?.country)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </Card>
+              )}
 
-              <FilledButton
-                testID="success-donate"
-                label={busy ? "Sealing..." : "Donate & Continue ✦"}
-                onPress={submitDonation}
-                disabled={busy || !selectedTierInr}
-                style={{ marginTop: 20 }}
-              />
-              <GhostButton
-                testID="success-skip-donation"
-                label="Skip donation"
-                onPress={skipDonation}
-                style={{ marginTop: 10 }}
-              />
+              {DONATIONS_ENABLED ? (
+                <>
+                  <FilledButton
+                    testID="success-donate"
+                    label={busy ? "Sealing..." : "Donate & Continue ✦"}
+                    onPress={submitDonation}
+                    disabled={busy || !selectedTierInr}
+                    style={{ marginTop: 20 }}
+                  />
+                  <GhostButton
+                    testID="success-skip-donation"
+                    label="Skip donation"
+                    onPress={skipDonation}
+                    style={{ marginTop: 10 }}
+                  />
+                </>
+              ) : (
+                <FilledButton
+                  testID="success-skip-donation"
+                  label={busy ? "Sealing..." : "Continue ✦"}
+                  onPress={skipDonation}
+                  disabled={busy}
+                  style={{ marginTop: 20 }}
+                />
+              )}
             </>
           )}
 
