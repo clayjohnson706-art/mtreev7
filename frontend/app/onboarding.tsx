@@ -118,7 +118,10 @@ export default function Onboarding() {
       scrollRef.current?.scrollTo({ x: (idx + 1) * width, animated: true });
     } else {
       await updateProfile({ onboarding_done: true });
-      router.replace("/paywall");
+      // Subscriptions are fully free for now (no Google Play Billing account set up yet) — skip
+      // straight past the paywall screen to where it would have sent a premium user anyway.
+      // Nothing here is deleted: flip these two lines back to "/paywall" once billing is ready.
+      router.replace("/deity");
     }
   };
 
@@ -129,7 +132,7 @@ export default function Onboarding() {
 
   const skip = async () => {
     await updateProfile({ onboarding_done: true });
-    router.replace("/paywall");
+    router.replace("/deity");
   };
 
   return (

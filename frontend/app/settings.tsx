@@ -46,6 +46,11 @@ function formatTime(hhmm: string | null | undefined): string {
   return `${h12}:${String(m).padStart(2, "0")} ${suf}`;
 }
 
+// No Google Play Billing account is set up yet — the app is fully free for now (no real
+// payment processing anywhere). Flip this back to `true` once billing is integrated to
+// restore the real "Manage Subscription" / plans flow; nothing else needs to change.
+const SUBSCRIPTIONS_ENABLED = false;
+
 export default function Settings() {
   const router = useRouter();
   const { user, updateProfile, signOut, deleteAccount, refresh } = useAuth();
@@ -361,22 +366,37 @@ export default function Settings() {
           </Card>
 
           <Text style={styles.section}>SUBSCRIPTION</Text>
-          <Card testID="settings-subscription" onPress={() => router.push("/subscription")}>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Status</Text>
-              <View style={[styles.pill, { backgroundColor: (isPremium ? COLORS.success : COLORS.gray3) + "20" }]}>
-                <Text style={{ color: isPremium ? COLORS.success : COLORS.gray1, fontSize: 12, fontWeight: "800" }}>
-                  {isPremium ? "PREMIUM ✦" : "FREE"}
-                </Text>
+          {SUBSCRIPTIONS_ENABLED ? (
+            <Card testID="settings-subscription" onPress={() => router.push("/subscription")}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Status</Text>
+                <View style={[styles.pill, { backgroundColor: (isPremium ? COLORS.success : COLORS.gray3) + "20" }]}>
+                  <Text style={{ color: isPremium ? COLORS.success : COLORS.gray1, fontSize: 12, fontWeight: "800" }}>
+                    {isPremium ? "PREMIUM ✦" : "FREE"}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: COLORS.gold, fontWeight: "700" }]}>
-                {isPremium ? "Manage Subscription" : "View Plans & Upgrade"}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.gray2} />
-            </View>
-          </Card>
+              <View style={styles.row}>
+                <Text style={[styles.rowLabel, { color: COLORS.gold, fontWeight: "700" }]}>
+                  {isPremium ? "Manage Subscription" : "View Plans & Upgrade"}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.gray2} />
+              </View>
+            </Card>
+          ) : (
+            // No billing account configured yet — the app is fully free for everyone for now, so
+            // there's nothing to "manage". Flip SUBSCRIPTIONS_ENABLED back to true (above) once
+            // Google Play Billing is integrated to restore the real plans/upgrade flow.
+            <Card testID="settings-subscription">
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Status</Text>
+                <View style={[styles.pill, { backgroundColor: COLORS.success + "20" }]}>
+                  <Text style={{ color: COLORS.success, fontSize: 12, fontWeight: "800" }}>FREE ✦</Text>
+                </View>
+              </View>
+              <Text style={styles.rowSub}>All features are free for everyone right now — nothing to pay or manage.</Text>
+            </Card>
+          )}
 
           {user?.is_admin && (
             <>

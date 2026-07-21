@@ -1,0 +1,44 @@
+{
+  "summary": "Tested the subscription/paywall-hide change (SUBSCRIPTIONS_ENABLED=false). Backend (pytest, 4/4 passed): confirmed is_premium remains true for fresh and existing users, onboarding_done persists correctly, and the pre-existing /api/subscribe mock still works server-side (just unreachable from UI). Frontend (Playwright, mobile viewport 375x667, real backend, dev-login flow): (1) Fresh brand-new user taken through all 6 onboarding slides via 'Next'/'Continue' tap-through -> navigated straight to /deity, paywall/subscription screens never rendered at any point. (2) Same fresh-user flow via 'Skip' button -> also lands directly on /deity. (3) Settings screen (test@mtree.dev, premium) SUBSCRIPTION section shows the static 'Status: FREE \u2726' card with 'All features are free for everyone right now \u2014 nothing to pay or manage.' text, no chevron/arrow icon, and tapping the card does nothing (stays on /settings, /subscription never shown). (4) Confirmed /app/frontend/app/paywall.tsx and subscription.tsx files still exist on disk (not deleted), just unreachable via nav. (5) Regression: Daily Streak Reminder toggle, Reminder Center, language/country rows all render on Settings; Home screen renders correctly with bottom tab bar (Home/Wall/Me) after navigating back from Settings.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "src/components/ui.tsx - Card",
+        "issue": "FOUND AND FIXED: The shared Card component silently dropped the `testID` prop whenever no `onPress` was passed (the non-pressable branch returned `<View style={...}>{children}</View>` without spreading testID). This made `settings-subscription` and `settings-streak-reminder-card` (both non-pressable Cards) completely invisible to any DOM/automation query, even though they rendered correct visible text on screen. Fixed by conditionally applying testID to the plain View when onPress is absent. Purely a testability fix; visual/functional behavior unchanged.",
+        "testID": "settings-subscription, settings-streak-reminder-card",
+        "priority": "LOW (was blocking automated verification only, not a user-facing bug)"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_subscription_hide.py",
+    "/app/test_reports/pytest/pytest_subscription_hide.xml"
+  ],
+  "action_items": [
+    "No blocking issues. Both requested changes (onboarding.tsx -> /deity redirect, settings.tsx static FREE card) work exactly as specified and verified end-to-end.",
+    "Applied a small testability fix in src/components/ui.tsx (Card testID prop was dropped for non-pressable cards) so future test runs can target settings-subscription and settings-streak-reminder-card directly. Recommend main agent review this 1-line diff (see updated_files) - low risk, additive only.",
+    "Confirmed /paywall and /subscription route files still exist on disk as required (defense-in-depth check) but are unreachable through any button in the normal flow."
+  ],
+  "critical_code_review_comments": [
+    "onboarding.tsx: both goNext() and skip() correctly call router.replace('/deity') with a clear inline comment explaining the change is reversible (flip back to /paywall once billing is ready). No dead paywall-related code left executing.",
+    "settings.tsx: SUBSCRIPTIONS_ENABLED flag cleanly gates the tappable vs static Card via ternary, well-commented, and the static branch card has no onPress at all (not just a disabled handler) so it's truly non-interactive as required.",
+    "Card component bug (now fixed) was a good catch: any future non-pressable Card with a testID would silently fail to be queryable - worth a quick grep for other Card usages without onPress that expect testID visibility."
+  ],
+  "updated_files": [
+    "/app/frontend/src/components/ui.tsx (Card component: testID now applied to the non-pressable View branch, not just the TouchableOpacity branch)",
+    "/app/backend/tests/test_subscription_hide.py (new regression test file)"
+  ],
+  "success_rate": {"backend": "100% (4/4 tests passed)", "frontend": "100% - onboarding redirect and settings subscription-hide both verified working, no regressions"},
+  "seed_data_creation": "Created several TEST_-prefixed / freshuser_*@mtree.dev dev-login users during testing to exercise the onboarding flow fresh each time - safe to leave, no production data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Onboarding flow test pattern: dev-login via POST /api/auth/dev-login?email=...@mtree.dev, set localStorage key 'mtree_session_token' to JSON.stringify(session_token), then goto app root - AuthNavGuard routes fresh users (onboarding_done:false) straight to /onboarding automatically. Onboarding slide buttons (skip + continue) use TouchableOpacity onPressIn (Reanimated New-Arch workaround, same as FilledButton elsewhere) - Playwright must use mouse.move+down+wait+up on bounding box, plain .click() does nothing. IMPORTANT: the shared Card component (src/components/ui.tsx) only applies testID when onPress is provided - if you add a new non-pressable Card with a testID in future features, verify this fix (already applied) is still in place, otherwise the testID silently won't render in DOM.",
+  "rca_of_issue": "Card testID bug: `const inner = <View style={[styles.card, style]}>{children}</View>` never referenced the `testID` param at all in the non-onPress return path - it was only ever spread onto the TouchableOpacity wrapper used in the onPress branch. Not a regression from this session's change (pre-existing latent bug), but it was invisible until this session added two new non-pressable Cards (settings-subscription static card, settings-streak-reminder-card) that needed testID visibility for verification. Fixed with a one-line conditional testID application."
+}

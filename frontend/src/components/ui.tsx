@@ -102,7 +102,7 @@ export function Card({
   testID?: string;
   wrapperStyle?: ViewStyle;
 }) {
-  const inner = <View style={[styles.card, style]}>{children}</View>;
+  const inner = <View style={[styles.card, style]} testID={onPress ? undefined : testID}>{children}</View>;
   if (onPress) {
     return (
       <TouchableOpacity onPress={onPress} testID={testID} activeOpacity={0.85} style={wrapperStyle}>
