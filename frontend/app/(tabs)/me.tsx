@@ -54,15 +54,9 @@ export default function Me() {
             </View>
             <Text style={styles.name}>{user?.name}</Text>
             <Text style={[styles.deityName, { color: deity.color }]}>{deity.name}</Text>
-            {user?.is_premium ? (
-              <View style={styles.premiumPill}>
-                <Text style={styles.premiumText}>✦ PREMIUM</Text>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={() => router.push("/paywall")} testID="me-upgrade">
-                <Text style={styles.upgradeText}>Upgrade to Premium ✦</Text>
-              </TouchableOpacity>
-            )}
+            {/* Premium badge / upgrade CTA hidden for now — app is fully free until Google Play
+                Billing is integrated. Restore this block once SUBSCRIPTIONS_ENABLED-equivalent
+                is flipped back on. */}
           </View>
 
           <Text style={styles.section}>GARDEN OF MANIFESTATIONS</Text>

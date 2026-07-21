@@ -450,12 +450,8 @@ export default function Settings() {
               label="Terms & Conditions"
               onPress={() => Linking.openURL(LEGAL_LINKS.termsAndConditions)}
             />
-            <LegalRow
-              testID="settings-legal-refund"
-              icon="cash-outline"
-              label="Refund Policy"
-              onPress={() => Linking.openURL(LEGAL_LINKS.refundPolicy)}
-            />
+            {/* Refund Policy row hidden for now — no payments are collected anywhere in the app
+                (donations/subscriptions hidden too) until Google Play Billing is integrated. */}
             <LegalRow
               testID="settings-legal-account-deletion"
               icon="trash-outline"

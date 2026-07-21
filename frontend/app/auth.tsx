@@ -83,14 +83,6 @@ export default function Auth() {
               >
                 Privacy Policy
               </Text>
-              {", "}
-              <Text
-                testID="refund-policy-link"
-                style={styles.termsLink}
-                onPress={() => Linking.openURL(LEGAL_LINKS.refundPolicy)}
-              >
-                Refund Policy
-              </Text>
               {", and "}
               <Text
                 testID="account-deletion-policy-link"

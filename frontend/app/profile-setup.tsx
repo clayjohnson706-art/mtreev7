@@ -204,7 +204,8 @@ export default function ProfileSetup() {
               </Text>
               <Ionicons name="chevron-forward" size={18} color={COLORS.gray2} />
             </TouchableOpacity>
-            <Text style={styles.helperText}>Used to show prices in your local currency</Text>
+            {/* "Used to show prices in your local currency" hint hidden for now — no pricing is
+                shown anywhere in the app while it's fully free (pre Google Play Billing). */}
 
             <CountryPicker
               visible={showCountryPicker}
