@@ -52,7 +52,7 @@ const SLIDES = [
     color: "#A855F7",
     title: "Daily Affirmations",
     body: "Speak your intention into being with a personalized affirmation — matched to your goal and shown in the language of your choice, every day.",
-    sub: "🔒 Premium Feature",
+    sub: "",
   },
 ];
 
@@ -163,7 +163,7 @@ export default function Onboarding() {
               </View>
               <Text style={styles.title}>{s.title}</Text>
               <Text style={styles.body}>{s.body}</Text>
-              <Text style={styles.sub}>{s.sub}</Text>
+              {!!s.sub && <Text style={styles.sub}>{s.sub}</Text>}
             </View>
           ))}
         </ScrollView>
