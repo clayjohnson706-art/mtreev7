@@ -4,6 +4,7 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "@/src/theme";
+import RequireAuth from "@/src/components/RequireAuth";
 
 function CustomTabBar({ state, navigation }: any) {
   return (
@@ -35,14 +36,19 @@ function CustomTabBar({ state, navigation }: any) {
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: COLORS.void } }}
-      tabBar={(props) => <CustomTabBar {...props} />}
-    >
-      <Tabs.Screen name="home" />
-      <Tabs.Screen name="wall" />
-      <Tabs.Screen name="me" />
-    </Tabs>
+    // Authenticated screens (Home/Wall/Me and everything reachable from them) must never be
+    // reachable without a valid, confirmed session — this closes the render-before-redirect gap
+    // instead of relying purely on AuthNavGuard's effect timing.
+    <RequireAuth>
+      <Tabs
+        screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: COLORS.void } }}
+        tabBar={(props) => <CustomTabBar {...props} />}
+      >
+        <Tabs.Screen name="home" />
+        <Tabs.Screen name="wall" />
+        <Tabs.Screen name="me" />
+      </Tabs>
+    </RequireAuth>
   );
 }
 

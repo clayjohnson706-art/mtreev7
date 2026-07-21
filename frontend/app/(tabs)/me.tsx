@@ -124,7 +124,10 @@ export default function Me() {
           <GhostButton
             testID="me-signout"
             label="Sign Out"
-            onPress={async () => { await signOut(); router.replace("/"); }}
+            // Navigation is handled centrally by AuthNavGuard (app/_layout.tsx) the instant
+            // `user` transitions to null — it clears the entire stack and lands directly on
+            // /auth, so this never needs to (and must not) navigate manually itself.
+            onPress={() => signOut()}
             style={{ marginTop: 24, backgroundColor: COLORS.danger + "12" }}
           />
         </ScrollView>

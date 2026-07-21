@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { COLORS, DEITIES, LANGUAGES, COUNTRIES, flagEmoji } from "@/src/theme";
 import AnimatedBackground from "@/src/components/AnimatedBackground";
+import RequireAuth from "@/src/components/RequireAuth";
 import { Card, GhostButton, FilledButton, Chip } from "@/src/components/ui";
 import LanguagePicker from "@/src/components/LanguagePicker";
 import CountryPicker from "@/src/components/CountryPicker";
@@ -211,16 +212,13 @@ export default function Settings() {
     setDeletingAccount(true);
     try {
       await deleteAccount();
-      // dismissAll() first pops every screen pushed on top of the stack's root (Home, tabs,
-      // Settings itself, etc.) BEFORE replacing — otherwise router.replace() alone only swaps
-      // the current entry, leaving the authenticated screens still in history underneath, so
-      // pressing the hardware Back button from the login screen could resurface them.
-      router.dismissAll();
-      router.replace("/auth");
+      // Navigation is handled centrally by AuthNavGuard (app/_layout.tsx) the instant `user`
+      // transitions to null — it clears the entire stack and lands directly on /auth.
     } finally { setDeletingAccount(false); }
   };
 
   return (
+    <RequireAuth>
     <View style={styles.container} testID="settings-screen">
       <AnimatedBackground deityColor={deity.color} />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
@@ -411,13 +409,10 @@ export default function Settings() {
           <GhostButton
             testID="settings-signout"
             label="Sign Out"
-            onPress={async () => {
-              await signOut();
-              // Same full-stack-clear as account deletion — prevents Back from Login
-              // returning into the authenticated Home/tabs stack after signing out.
-              router.dismissAll();
-              router.replace("/auth");
-            }}
+            // Navigation is handled centrally by AuthNavGuard (app/_layout.tsx) the instant
+            // `user` transitions to null — it clears the entire stack and lands directly on
+            // /auth, so this never needs to (and must not) navigate manually itself.
+            onPress={() => signOut()}
             style={{ marginTop: 24, backgroundColor: COLORS.danger + "12" }}
           />
 
@@ -680,6 +675,7 @@ export default function Settings() {
         />
       )}
     </View>
+    </RequireAuth>
   );
 }
 

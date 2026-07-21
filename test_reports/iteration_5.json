@@ -1,0 +1,40 @@
+{
+  "summary": "Tested the 5 root-cause fixes for the rapid-swipe-logout bug. Backend: 8/8 pytest tests passed (test_auth_refresh_fix.py) confirming dev-login, /auth/me 200/401 behavior, and no regression in logout/profile-update. Frontend: (1) Rapid tab-bar TAP stress test (30 rapid taps home<->wall<->me, ~80ms apart) - PASSED, never redirected to /auth, GET /api/auth/me stayed 200 throughout. (2) Rapid SWIPE gesture stress test (20 fast simulated swipes) - PASSED, no unexpected /auth redirect, session held. (3) Single deliberate swipe confirmed tab switching still works correctly (home->wall). (4) Explicit Sign-Out flow from Settings - works correctly ONCE THE onPressIn quirk is worked around (GhostButton uses onPressIn not onPress, same known Playwright quirk as prior rounds) - lands cleanly on /auth with token cleared, no splash flash. HOWEVER found a NEW CRITICAL regression: pressing browser/hardware Back after this real sign-out (or ANY direct navigation to a protected route like /home or /settings while logged out, e.g. via deep link, bookmark, or back button) leaves the app PERMANENTLY STUCK on an infinite loading spinner (RequireAuth's ActivityIndicator) - it NEVER redirects to /auth. Verified this happens even on a completely fresh browser context with zero token in localStorage navigating directly to /home. Root cause: RequireAuth only renders a spinner and has no redirect fallback of its own; the only redirect logic lives in AuthNavGuard, which explicitly no-ops for this exact case via `if (!wasAuthenticatedRef.current) return` (comment: 'never signed in yet this session — not our job') AND is a one-shot per app-lifetime mount (wasAuthenticatedRef flips to false and is never set true again after firing once), so it cannot rescue a user who lands on a protected route while unauthenticated via Back/deep-link after the very first sign-out of the session. Cold-start (fresh visit to '/') still correctly lands on /auth via splash after ~2.2s - that path is fine.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Back button (or direct URL/deep-link) to a protected route (/home, /settings, /wall, /me) while signed out",
+        "issue": "CRITICAL REGRESSION: App gets permanently stuck on RequireAuth's infinite loading spinner and never redirects to /auth. Reproduced 3 ways: (a) browser Back after a real Sign Out from Settings, (b) page.goto('/home') directly after sign-out with token cleared, (c) fresh browser context with NO token at all navigating straight to /home. In all 3 cases the spinner (testID=require-auth-loading) renders forever with no escape - confirmed by waiting 6+ seconds, URL never changes from /home.",
+        "affected_testIDs": ["require-auth-loading", "settings-signout"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_refresh_fix.py"
+  ],
+  "action_items": [
+    "FIX REQUIRED: RequireAuth.tsx (or a new lightweight redirect effect) must actively router.replace('/auth') whenever it detects `!loading && !user` on mount/update — do not rely solely on AuthNavGuard's one-shot authenticated->null transition, since that never covers 'landed on a protected route while already/still unauthenticated' (deep link, bookmark, Back button navigating the URL bar directly to a tabs/settings route, or any access after the guard's one-shot has already fired once this session).",
+    "Also consider making AuthNavGuard's wasAuthenticatedRef not a hard one-shot, OR complement it with a per-protected-screen check, so repeated Back-button attempts to resurface auth-gated URLs after the FIRST sign-out of a session are also caught (currently only the very first sign-out transition is handled; any subsequent landing on a protected URL while signed out is a dead end).",
+    "Note for next testing agent: GhostButton (ui.tsx) uses onPressIn not onPress (documented deliberate pattern from prior rounds) — Playwright .click()/force=True often does NOT reliably trigger it; must use scroll_into_view_if_needed() + mouse.move()+mouse.down()+wait+mouse.up() to reliably trigger Sign Out / other GhostButton actions in this Expo web preview."
+  ],
+  "critical_code_review_comments": [
+    "AuthContext.tsx refresh() retry-before-logout + de-dupe guard logic reviewed and stress-tested live - works correctly, no false-positive logouts observed across 50 combined rapid tap+swipe interactions.",
+    "SwipeNav.tsx isNavigatingRef lock + local navigator.navigate() reviewed and stress-tested live - no duplicate/overlapping navigation or unexpected screens observed.",
+    "AuthNavGuard.tsx's design assumption ('never signed in yet this session — not our job', delegating initial routing entirely to app/index.tsx splash) breaks down for ANY post-first-sign-out access to a protected URL, because (a) it's a one-shot (can only ever fire once per app lifetime), and (b) it only listens for a TRANSITION event, not a static 'currently on protected route + currently unauthenticated' state, which is exactly what happens on Back-button navigation or a deep link.",
+    "RequireAuth.tsx is a pure render-guard with zero navigation logic — by itself it can leave the user stranded forever if nothing else redirects them, which is exactly what's happening."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (8/8 pytest tests passed)", "frontend": "~80% - rapid-swipe/rapid-tap stress tests (the primary reported bug) PASSED cleanly, but a new critical navigation dead-end regression was found in the Back/deep-link-to-protected-route path"},
+  "seed_data_creation": "Patched existing test@mtree.dev user's profile (onboarding_done/profile_done/tour_done set true, deity_id=1, gender/dob set) purely to bypass onboarding for testing - this is the same shared dev-test account referenced in test_credentials.md, no new users created.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test@mtree.dev now has onboarding_done=true/profile_done=true/tour_done=true/deity_id=1 (was previously false/false/false/null - fine to leave as-is or reset, doesn't affect other tests). To reproduce the stuck-spinner bug quickly: dev-login, save token to localStorage key 'mtree_session_token' as JSON.stringify(token), then clear the token and page.goto directly to '/home' or '/settings' - it hangs on an infinite spinner forever (confirmed 6+ second wait). GhostButton uses onPressIn - use mouse down/up with scroll_into_view_if_needed(), not .click().",
+  "rca_of_issue": "The 5 root-cause fixes for the ORIGINAL reported bug (rapid-swipe causing unexpected logout) all verified working correctly under stress testing - AuthContext's retry-before-logout, SwipeNav's navigation lock, and the rapid tap/swipe stress tests never triggered an unexpected /auth redirect or session loss. HOWEVER, in closing the 'Settings renders without session data' gap via RequireAuth (which correctly blocks stale-content rendering), the fix introduced a NEW dead-end: RequireAuth has no redirect capability of its own, and AuthNavGuard (the only redirect mechanism) explicitly declines to act for a user who is unauthenticated but currently sitting on a protected route without having JUST transitioned from authenticated in this exact render cycle (a Back-button navigation, deep link, or any access after the one-shot guard has already consumed itself once this session). Net result: the user is no longer shown a broken authenticated screen, but instead gets stuck forever on a blank loading spinner with no way to reach the Sign In screen - arguably an equally bad (or worse, since there's no visible error/action) UX regression that needs a redirect-on-mount fallback in RequireAuth itself or a non-one-shot guard."
+}

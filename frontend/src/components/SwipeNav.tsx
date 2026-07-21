@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { ViewStyle, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -8,7 +8,7 @@ import Animated, {
   Easing,
   runOnJS,
 } from "react-native-reanimated";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useNavigation, useFocusEffect } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 // Swipe navigation wrapper — live 1:1 finger tracking + spring physics for an effortless,
@@ -38,8 +38,15 @@ export default function SwipeNav({
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
-  const router = useRouter();
+  const navigation = useNavigation();
   const translateX = useSharedValue(0);
+  // Hard lock against duplicate/overlapping navigation actions: without this, a fast flick
+  // followed by another swipe before the first tab switch has actually completed could fire a
+  // SECOND router action while the navigator is still mid-transition from the first — the kind
+  // of overlapping/duplicate navigation dispatch that can leave React Navigation's stack in an
+  // inconsistent state. Released the moment this screen (or the destination one) next gains
+  // focus, with a short timeout fallback as a safety net.
+  const isNavigatingRef = useRef(false);
 
   // Tab screens stay mounted after their first visit (bottom tabs just toggle visibility),
   // so entering with an offset + spring-to-0 on every focus keeps the transition feeling
@@ -47,6 +54,7 @@ export default function SwipeNav({
   // no async gap, so there's no intermediate frame rendered at the wrong position.
   useFocusEffect(
     React.useCallback(() => {
+      isNavigatingRef.current = false; // this screen is now genuinely focused — release the lock.
       const prevIdx = ORDER.indexOf(lastTab as any);
       const currIdx = ORDER.indexOf(screen);
       const fromX = lastTab && prevIdx !== -1 && prevIdx !== currIdx ? (currIdx > prevIdx ? ENTER_OFFSET : -ENTER_OFFSET) : 0;
@@ -61,13 +69,23 @@ export default function SwipeNav({
   const prevTab = idx > 0 ? ORDER[idx - 1] : null;
 
   const goTo = (t: "home" | "wall" | "me") => {
-    router.navigate(`/(tabs)/${t}` as any);
+    if (isNavigatingRef.current) return; // a switch is already in flight — ignore duplicates.
+    isNavigatingRef.current = true;
+    // Use the LOCAL tabs navigator (same object/mechanism the tab bar's own onPress uses)
+    // instead of the global router with an absolute path — guarantees this can only ever
+    // switch tabs within the existing Tabs navigator and can never push a stray duplicate
+    // entry onto the root stack, however rapidly/repeatedly it's called.
+    (navigation as any).navigate(t);
+    // Safety-net release in case focus doesn't fire promptly for some reason (e.g. navigating
+    // toward a tab that's already focused) — never leave the gesture permanently locked out.
+    setTimeout(() => { isNavigatingRef.current = false; }, 600);
   };
 
   const pan = Gesture.Pan()
     .activeOffsetX([-12, 12])
     .failOffsetY([-24, 24])
     .onUpdate((e) => {
+      if (isNavigatingRef.current) return; // a switch is already committed — ignore further drag.
       // Live finger-follow with rubber-band resistance at the edges (no next/prev tab).
       let tx = e.translationX;
       if (tx < 0 && !nextTab) tx *= 0.3;
@@ -75,6 +93,7 @@ export default function SwipeNav({
       translateX.value = tx;
     })
     .onEnd((e) => {
+      if (isNavigatingRef.current) return; // ignore — a previous swipe's switch is still resolving.
       const { translationX, velocityX } = e;
       if ((translationX < -70 || velocityX < -700) && nextTab) {
         // Let the slide-out animation actually FINISH before switching tabs — navigating in

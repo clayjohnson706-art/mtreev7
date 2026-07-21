@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, Image, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import Animated, {
@@ -20,6 +20,7 @@ export default function Splash() {
   const scale = useSharedValue(0.4);
   const opacity = useSharedValue(0);
   const taglineOpacity = useSharedValue(0);
+  const hasNavigatedRef = useRef(false);
 
   useEffect(() => {
     scale.value = withSpring(1, { damping: 8, stiffness: 90 });
@@ -29,7 +30,10 @@ export default function Splash() {
 
   useEffect(() => {
     if (loading) return;
+    if (hasNavigatedRef.current) return; // one-shot: never re-arm a stale redirect later.
     const t = setTimeout(() => {
+      if (hasNavigatedRef.current) return;
+      hasNavigatedRef.current = true;
       router.replace(getNextRoute(user) as any);
     }, 2200);
     return () => clearTimeout(t);

@@ -8,6 +8,7 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/context/AuthContext";
+import AuthNavGuard from "@/src/components/AuthNavGuard";
 import { COLORS } from "@/src/theme";
 import { notificationsAvailable } from "@/src/utils/notifications";
 
@@ -56,6 +57,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AuthProvider>
           <BottomSheetModalProvider>
+            {/* Root-level safety net: guarantees a confirmed logout always clears the entire
+                navigation stack and lands directly on /auth (see AuthNavGuard for details). */}
+            <AuthNavGuard />
             <StatusBar barStyle="light-content" backgroundColor={COLORS.void} />
             <Stack
               initialRouteName="index"

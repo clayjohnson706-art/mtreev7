@@ -58,30 +58,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const clearBlockedMessage = useCallback(() => setBlockedMessage(null), []);
 
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+
   const refresh = useCallback(async () => {
-    try {
-      const token = await getToken();
-      if (!token) { setUser(null); return; }
-      const u = await api<User>("/auth/me");
-      setUser(u);
-    } catch (e: any) {
-      const status: number | undefined = e?.status;
-      // Only a definitive rejection from the server (401 = invalid/expired session, 403 = blocked
-      // account) should ever sign the user out and wipe their stored token. Any other failure —
-      // a dropped connection, a slow/cold-starting backend, a one-off 5xx — is transient and must
-      // NOT destroy a still-valid session. Otherwise a single network blip permanently logs the
-      // user out (they'd be stuck on the login screen on every subsequent app open/refresh until
-      // they sign back in), which is exactly the "kicked to login" bug this guards against.
-      if (status === 401 || status === 403) {
-        await clearToken();
-        setUser(null);
-        if (status === 403 && typeof e?.message === "string" && e.message.toLowerCase().includes("blocked")) {
-          setBlockedMessage("Your account has been blocked. Contact support if you think this is a mistake.");
+    // De-dupe concurrent calls: rapid tab switching can trigger several screens' focus effects
+    // firing refresh()-adjacent auth checks in the same tick. Without this guard, overlapping
+    // /auth/me requests can resolve out of order and clobber each other's state.
+    if (refreshInFlightRef.current) return refreshInFlightRef.current;
+
+    const run = async () => {
+      try {
+        const token = await getToken();
+        if (!token) { setUser(null); return; }
+        const u = await api<User>("/auth/me");
+        setUser(u);
+      } catch (e: any) {
+        const status: number | undefined = e?.status;
+        // Only a definitive rejection from the server (401 = invalid/expired session, 403 = blocked
+        // account) should ever sign the user out and wipe their stored token. Any other failure —
+        // a dropped connection, a slow/cold-starting backend, a one-off 5xx — is transient and must
+        // NOT destroy a still-valid session. Otherwise a single network blip permanently logs the
+        // user out (they'd be stuck on the login screen on every subsequent app open/refresh until
+        // they sign back in), which is exactly the "kicked to login" bug this guards against.
+        if (status === 401 || status === 403) {
+          // IMPORTANT: don't trust a single 401/403 immediately. A burst of concurrent requests
+          // (e.g. several screens' data-loading effects firing together during rapid tab
+          // swiping) can occasionally hit a TRANSIENT local secure-storage read glitch — the
+          // token is genuinely still there, but that one particular read momentarily returned
+          // nothing, so THIS request went out with no Authorization header and the server
+          // correctly (but misleadingly) answered 401. Treating that as "session invalid" would
+          // wipe a perfectly good session out from under the user. So: wait briefly, re-check
+          // storage, and retry once before concluding the session is actually dead.
+          await new Promise((r) => setTimeout(r, 350));
+          const retryToken = await getToken();
+          if (!retryToken) {
+            // No token left locally at all (e.g. a real signOut() ran in the meantime) — this
+            // is not a false positive, there's genuinely nothing to be logged into.
+            setUser(null);
+            return;
+          }
+          try {
+            const u2 = await api<User>("/auth/me");
+            setUser(u2); // token was fine all along — false alarm, session recovered silently
+            return;
+          } catch (e2: any) {
+            const status2: number | undefined = e2?.status;
+            if (status2 === 401 || status2 === 403) {
+              // Confirmed on retry (with a token verified present) — this is a genuine
+              // server-side session invalidation/expiry/block, not a local storage hiccup.
+              await clearToken();
+              setUser(null);
+              if (status2 === 403 && typeof e2?.message === "string" && e2.message.toLowerCase().includes("blocked")) {
+                setBlockedMessage("Your account has been blocked. Contact support if you think this is a mistake.");
+              }
+            } else {
+              console.warn("Auth refresh retry failed (transient, session kept):", e2?.message);
+            }
+          }
+        } else {
+          console.warn("Auth refresh failed (transient, session kept):", e?.message);
         }
-      } else {
-        console.warn("Auth refresh failed (transient, session kept):", e?.message);
       }
-    }
+    };
+
+    const p = run().finally(() => {
+      refreshInFlightRef.current = null;
+    });
+    refreshInFlightRef.current = p;
+    return p;
   }, []);
 
   const bootstrap = useCallback(async () => {
